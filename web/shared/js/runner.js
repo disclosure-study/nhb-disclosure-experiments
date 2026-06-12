@@ -12,7 +12,7 @@ NHB.runner = (function () {
   let pageEnterTs = 0, dwellTimer = null;
   const modules = {};
   const data = {};                       // collected per-page payloads
-  let appEl = null, progEl = null;
+  let appEl = null, progEl = null, stepEl = null;
 
   const C = () => NHB.components;
   const el = (t, c, h) => C().el(t, c, h);
@@ -48,11 +48,13 @@ NHB.runner = (function () {
     const bar = el('div', 'topbar');
     bar.innerHTML =
       `<div class="inner"><span class="brand">${cfg.brand || cfg.title || 'Study'}</span>` +
-      `<span><span class="modeflag ${NHB.logger.getMode()}">${
+      `<span style="display:flex;align-items:center;gap:.75rem"><span class="step-label"></span>` +
+      `<span class="modeflag ${NHB.logger.getMode()}">${
         NHB.logger.getMode() === 'preview' ? 'PREVIEW' : 'live'}</span></span></div>` +
       '<div class="progress"><i></i></div>';
     document.body.appendChild(bar);
     progEl = bar.querySelector('.progress > i');
+    stepEl = bar.querySelector('.step-label');
     const wrap = el('div', 'wrap');
     appEl = el('div'); wrap.appendChild(appEl);
     document.body.appendChild(wrap);
@@ -61,6 +63,7 @@ NHB.runner = (function () {
   function setProgress() {
     const pct = Math.round((idx) / pages.length * 100);
     if (progEl) progEl.style.width = pct + '%';
+    if (stepEl) stepEl.textContent = 'Step ' + (idx + 1) + ' of ' + pages.length;
   }
 
   function navRow(onNext, opts) {
@@ -215,7 +218,7 @@ NHB.runner = (function () {
     const url = cfg.completion_url ||
       (NHB.prolific.isReal() && code ? 'https://app.prolific.com/submissions/complete?cc=' + code : null);
     document.querySelector('.wrap').innerHTML =
-      '<div class="center"><div class="big">✓ All done — thank you!</div>' +
+      '<div class="center"><div class="check-circle">✓</div><div class="big">All done — thank you!</div>' +
       (code ? `<p>Your completion code:</p><div class="code">${code}</div>` : '') +
       (url ? `<p><a class="btn big" href="${url}">Return to Prolific →</a></p>` :
         '<p class="muted">In a live run this screen returns the participant to Prolific with their completion code.</p>') +
@@ -241,6 +244,7 @@ NHB.runner = (function () {
     const p = pages[idx];
     NHB.runner.currentPageId = p.id;
     appEl.innerHTML = '';
+    appEl.classList.remove('page-anim'); void appEl.offsetWidth; appEl.classList.add('page-anim');
     window.scrollTo(0, 0);
     pageEnterTs = Date.now();
     setProgress();
