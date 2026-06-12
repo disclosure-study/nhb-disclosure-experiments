@@ -215,13 +215,10 @@ NHB.runner = (function () {
     clearTimers();
     const res = await NHB.logger.complete({ pages_seen: idx + 1 });
     const code = (res && res.completion_code) || cfg.completion_code || null;
-    const url = cfg.completion_url ||
-      (NHB.prolific.isReal() && code ? 'https://app.prolific.com/submissions/complete?cc=' + code : null);
     document.querySelector('.wrap').innerHTML =
       '<div class="center"><div class="check-circle">✓</div><div class="big">All done — thank you!</div>' +
-      (code ? `<p>Your completion code:</p><div class="code">${code}</div>` : '') +
-      (url ? `<p><a class="btn big" href="${url}">Return to Prolific →</a></p>` :
-        '<p class="muted">In a live run this screen returns the participant to Prolific with their completion code.</p>') +
+      (code ? '<p>Your completion code — please enter it on the recruitment platform to confirm your participation:</p>' +
+        `<div class="code">${code}</div>` : '') +
       (NHB.logger.getMode() === 'preview' ?
         '<p class="muted" style="margin-top:1.4rem">This was a PREVIEW. No data left your browser. ' +
         'Open the event log (bottom-right) to inspect everything that was recorded, or download it as JSON.</p>' : '') +
