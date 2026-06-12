@@ -1,0 +1,120 @@
+{
+  "study": "s4",
+  "title": "Creative Writing & Online Galleries",
+  "brand": "WriteGallery — community writing studio",
+  "conditions": { "regime": ["R_CTRL", "R_STIGMA", "R_BENEFIT"], "prompt": ["prompt_a", "prompt_b"] },
+  "stimuli": { "gallery": "../config/stimuli/gallery_seed.json" },
+  "regime_scripts": {
+    "R_CTRL": "Before your piece is added to the gallery, choose a label that describes how it was made.",
+    "R_STIGMA": "Before your piece is added to the gallery, choose a label that describes how it was made. <em>In previous sessions, pieces labelled as AI-assisted or AI-generated received noticeably fewer likes from readers.</em>",
+    "R_BENEFIT": "Before your piece is added to the gallery, choose a label that describes how it was made. <em>Pieces that disclose AI use receive a ✓ Verified-Transparent badge and are featured in the gallery's Transparency Showcase.</em>"
+  },
+  "label_menu": [
+    { "label": "No AI used", "value": "none" },
+    { "label": "AI-assisted (editing / polish)", "value": "assisted_polish" },
+    { "label": "AI-assisted (drafting)", "value": "assisted_drafting" },
+    { "label": "Created with AI", "value": "created_with_ai" }
+  ],
+  "pages": [
+    {
+      "id": "consent",
+      "type": "consent",
+      "title": "Information & consent",
+      "version": 1,
+      "html": "<p>You are invited to take part in a study about <strong>creative writing and online galleries</strong>, run by a university research team.</p><h3>What you'll do</h3><ul><li>Browse a small gallery of short pieces and rate a couple of them.</li><li>Write a short opening scene (about 150&ndash;300 words) for the gallery's weekly theme.</li><li>An optional <strong>Writing Assistant</strong> (an AI tool) is available in the editor. Using it is entirely your choice and will <strong>not</strong> affect your pay or any quality bonus.</li><li>Answer a short questionnaire. The whole task takes about <strong>35 minutes</strong>.</li></ul><h3>What we record</h3><ul><li>Your writing, and your interactions with the editor and the Writing Assistant (e.g., requests you make, text you insert, paste events, timing). We log tool interactions to study how people write with these tools.</li><li>We do <strong>not</strong> collect your name; your participant ID from the recruitment platform is replaced by an irreversible code. Nothing you type is sent to the AI provider with any identifier attached. Please don't enter personal information.</li></ul><h3>Pay</h3><ul><li>You will be paid the amount shown on the study's recruitment page for completing, plus a possible <strong>quality bonus</strong> judged on writing quality only — independent of any labels and of whether you used the assistant.</li><li>Participation is voluntary; you may stop at any time.</li></ul><p class=\"muted\">Approved under university research-ethics procedures. Your data is handled in line with the data-protection law that applies where you live (for example the UK/EU GDPR, China's PIPL, or Malaysia's PDPA).</p>",
+      "checkbox": "I am 18 or older, I have read the above, and I consent to take part.",
+      "next_label": "I consent — begin"
+    },
+    { "id": "gallery", "type": "custom", "module": "galleryPage", "min_dwell_ms": 90000 },
+    { "id": "writing", "type": "custom", "module": "editorPage" },
+    { "id": "label", "type": "custom", "module": "labelPage" },
+    { "id": "publishing", "type": "custom", "module": "publishingPage" },
+    {
+      "id": "q1",
+      "type": "form",
+      "title": "Your piece",
+      "blocks": [
+        {
+          "items": [
+            { "type": "slider", "id": "anticipated_likes", "text": "How many likes do you expect your piece to receive from gallery readers?", "min": 0, "max": 50, "start": 0, "unit": " likes", "min_label": "0", "max_label": "50" },
+            { "type": "text", "id": "why_label", "long": true, "required": true, "min_words": 5, "text": "In 2–3 sentences: why did you choose the label you chose?" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q2",
+      "type": "form",
+      "title": "The gallery",
+      "subtitle": "Thinking about the gallery you browsed and just added your piece to:",
+      "blocks": [
+        {
+          "title": "Fairness",
+          "randomize": true,
+          "items": [
+            { "type": "likert", "id": "FAIR1", "text": "The way this gallery treats AI-labelled pieces is fair." },
+            { "type": "likert", "id": "FAIR2", "text": "In this gallery, AI-labelled pieces receive the recognition their quality deserves." },
+            { "type": "likert", "id": "FAIR3", "text": "The visibility a piece gets in this gallery is justified by its quality." }
+          ]
+        },
+        {
+          "title": "The platform",
+          "randomize": true,
+          "items": [
+            { "type": "likert", "id": "TRUST1", "text": "This gallery treats its writers honestly." },
+            { "type": "likert", "id": "TRUST2", "text": "This gallery has its writers’ best interests at heart." },
+            { "type": "attention", "id": "ATTN1", "text": "This item checks that you are reading carefully — please select ‘Somewhat agree’.", "correct": 5 },
+            { "type": "likert", "id": "TRUST3", "text": "This gallery is competent at showcasing writing fairly." }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q3",
+      "type": "form",
+      "title": "A few last questions",
+      "blocks": [
+        {
+          "items": [
+            { "type": "mcq", "id": "self_reported_use", "text": "Did you use the Writing Assistant for this piece? If yes, how?", "options": ["Not at all", "For polish / editing", "To draft parts of it", "To generate most of it"], "values": ["none", "polish", "drafting", "generated"] }
+          ]
+        },
+        {
+          "title": "Views on AI (for context only)",
+          "items": [
+            { "type": "likert", "id": "AIA1", "text": "I am interested in using artificially intelligent systems in my daily life.", "scale": { "min": 1, "max": 7, "min_label": "Strongly disagree", "max_label": "Strongly agree", "labels": ["Strongly disagree", "Disagree", "Somewhat disagree", "Neither", "Somewhat agree", "Agree", "Strongly agree"] } },
+            { "type": "likert", "id": "AIA2", "text": "Artificial intelligence can help solve many world problems.", "scale": { "min": 1, "max": 7, "min_label": "Strongly disagree", "max_label": "Strongly agree", "labels": ["Strongly disagree", "Disagree", "Somewhat disagree", "Neither", "Somewhat agree", "Agree", "Strongly agree"] } },
+            { "type": "likert", "id": "AIA3_R", "text": "I find artificial intelligence sinister.", "scale": { "min": 1, "max": 7, "min_label": "Strongly disagree", "max_label": "Strongly agree", "labels": ["Strongly disagree", "Disagree", "Somewhat disagree", "Neither", "Somewhat agree", "Agree", "Strongly agree"] } },
+            { "type": "likert", "id": "AIA4_R", "text": "I think artificial intelligence is dangerous.", "scale": { "min": 1, "max": 7, "min_label": "Strongly disagree", "max_label": "Strongly agree", "labels": ["Strongly disagree", "Disagree", "Somewhat disagree", "Neither", "Somewhat agree", "Agree", "Strongly agree"] } },
+            { "type": "mcq", "id": "ai_use_freq", "text": "How often do you use generative-AI tools for writing?", "options": ["Never", "About monthly", "About weekly", "Daily"], "values": ["never", "monthly", "weekly", "daily"] }
+          ]
+        },
+        {
+          "title": "Your writing background",
+          "items": [
+            { "type": "mcq", "id": "write_freq", "text": "How often do you write fiction or creative pieces?", "options": ["Never", "A few times a year", "About monthly", "Weekly or more"], "values": ["never", "yearly", "monthly", "weekly"] },
+            { "type": "mcq", "id": "shared_publicly", "text": "Have you ever shared your writing publicly online?", "options": ["Yes", "No"], "values": ["yes", "no"] }
+          ]
+        },
+        {
+          "title": "About you",
+          "items": [
+            { "type": "mcq", "id": "age", "text": "Your age:", "options": ["18–24", "25–34", "35–44", "45–54", "55–64", "65+"], "values": ["18-24", "25-34", "35-44", "45-54", "55-64", "65+"] },
+            { "type": "mcq", "id": "gender", "text": "Your gender:", "options": ["Woman", "Man", "Non-binary", "Prefer to self-describe", "Prefer not to say"], "values": ["woman", "man", "nonbinary", "self", "na"] },
+            { "type": "mcq", "id": "country", "text": "Where do you currently live?", "options": ["United Kingdom", "United States", "Malaysia", "China", "Other"], "values": ["uk", "us", "my", "cn", "other"] },
+            { "type": "text", "id": "suspicion", "long": true, "required": false, "text": "Finally — what do you think this study was really about? (Optional.)" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "debrief",
+      "type": "debrief",
+      "title": "What this study was really about — please read",
+      "reconsent": true,
+      "reconsent_text": "I have read this debrief and I am happy for my responses and writing to be used in the research.",
+      "next_label": "Submit my responses",
+      "html": "<p><strong>Thank you for writing with us.</strong> Here is the full picture.</p><p>This study looks at how the <strong>way a platform treats AI disclosure</strong> affects whether writers truthfully label their own use of AI tools. Participants were randomly assigned to one of three versions of the gallery:</p><ul><li>a neutral version,</li><li>one where AI-labelled pieces appeared to get fewer likes, and</li><li>one where AI-labelled pieces got a ‘Verified-Transparent’ badge and a showcase.</li></ul><p><strong>The gallery, the other pieces, the authors, and all the like counts were simulated</strong> — they were created for the study. <strong>No real readers saw your piece</strong>, and it was not actually published anywhere. The statements about how readers treat AI-labelled pieces were part of these designed conditions.</p><p>Your pay and any quality bonus were <strong>never</strong> affected by which label you chose or whether you used the assistant — the bonus is judged on writing quality alone, exactly as we told you. We studied your <em>own</em> labelling decision; we did not penalise it.</p><p>If, having read this, you would prefer we did not use your data, leave the box below unticked — <strong>you will still be paid in full</strong>.</p><p class=\"muted\">Questions? Contact details are on the Prolific study page.</p>"
+    }
+  ]
+}

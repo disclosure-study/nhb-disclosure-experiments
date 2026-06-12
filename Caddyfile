@@ -1,0 +1,7 @@
+# SITE_ADDRESS comes from .env:
+#   a domain  -> automatic HTTPS via Let's Encrypt (e.g. experiments.example.edu)
+#   :80       -> plain HTTP, for quick IP-only testing before DNS is set up
+{$SITE_ADDRESS} {
+	encode gzip
+	reverse_proxy app:8000
+}

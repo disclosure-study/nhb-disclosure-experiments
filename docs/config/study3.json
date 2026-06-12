@@ -1,0 +1,181 @@
+{
+  "study": "s3",
+  "title": "Reading & Reactions to Online Fiction",
+  "brand": "Fiction Archive Reading Study",
+  "conditions": { "arm": ["L0_control", "L1_disclosed"], "story": ["story_a", "story_b", "story_c"] },
+  "stimuli": { "stories": "../config/stimuli/stories.json" },
+  "pages": [
+    {
+      "id": "consent",
+      "type": "consent",
+      "title": "Information & consent",
+      "version": 1,
+      "html": "<p>You are invited to take part in a research study about <strong>how people read and react to short works of online fiction</strong>. It is run by a university research team.</p><h3>What you'll do</h3><ul><li>Read one short story (about 1,200 words) on a page styled like an online fiction archive.</li><li>Answer questions about your reactions to the story and its author.</li><li>The whole task takes about <strong>13&ndash;15 minutes</strong>.</li></ul><h3>Your data</h3><ul><li>Participation is voluntary; you may stop at any time without penalty.</li><li>We record your answers and basic interaction timing (e.g., how long pages are open). We do <strong>not</strong> collect your name. Your participant ID from the recruitment platform is replaced by an irreversible code on our server.</li><li>Please do not enter any personal information in free-text boxes.</li></ul><p class=\"muted\">Approved under university research-ethics procedures. Your data is handled in line with the data-protection law that applies where you live (for example the UK/EU GDPR, China's PIPL, or Malaysia's PDPA). Contact details are provided on the debrief page at the end.</p>",
+      "checkbox": "I am 18 or older, I have read the above, and I consent to take part.",
+      "next_label": "I consent — begin"
+    },
+    {
+      "id": "screener",
+      "type": "screener",
+      "title": "A couple of quick questions",
+      "eligibility": [ { "id": "read_freq", "allowed": ["monthly", "weekly", "daily"] } ],
+      "screenout_html": "<p>Thank you for your interest. This particular study is looking for people who read fiction at least monthly, so it isn't a match this time. You are free to return your submission on Prolific without penalty.</p>",
+      "blocks": [
+        {
+          "items": [
+            {
+              "type": "mcq",
+              "id": "read_freq",
+              "text": "How often do you read fiction (novels, short stories, fan fiction, etc.)?",
+              "options": ["Never", "A few times a year", "About monthly", "About weekly", "Daily"],
+              "values": ["never", "yearly", "monthly", "weekly", "daily"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "story",
+      "type": "custom",
+      "module": "storyPage",
+      "min_dwell_ms": 90000
+    },
+    {
+      "id": "reactions_main",
+      "type": "form",
+      "title": "Your reactions to the story",
+      "subtitle": "There are no right or wrong answers — we want your honest impression.",
+      "blocks": [
+        {
+          "title": "If this were on a fiction archive…",
+          "randomize": true,
+          "items": [
+            { "type": "likert", "id": "KUD1", "text": "If I saw this story on a fiction archive, I would leave it kudos (a ‘like’).", "scale": { "min": 1, "max": 7, "min_label": "Very unlikely", "max_label": "Very likely" } },
+            { "type": "likert", "id": "VBI2", "text": "I would leave a comment on this story.", "scale": { "min": 1, "max": 7, "min_label": "Very unlikely", "max_label": "Very likely" } },
+            { "type": "likert", "id": "VBI3", "text": "I would bookmark this story to find it again.", "scale": { "min": 1, "max": 7, "min_label": "Very unlikely", "max_label": "Very likely" } }
+          ]
+        },
+        {
+          "title": "How you found the experience of reading it",
+          "randomize": true,
+          "items": [
+            { "type": "likert", "id": "ENJ1", "text": "It was fun for me to read this story." },
+            { "type": "likert", "id": "ENJ2", "text": "I had a good time reading this story." },
+            { "type": "likert", "id": "ENJ3", "text": "The story was entertaining." }
+          ]
+        },
+        {
+          "title": "The writing itself",
+          "randomize": true,
+          "items": [
+            { "type": "likert", "id": "QUAL1", "text": "The story is well written." },
+            { "type": "likert", "id": "QUAL2", "text": "The writing is vivid and engaging." },
+            { "type": "likert", "id": "QUAL3", "text": "The story is polished and carefully crafted." }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "reward_author",
+      "type": "form",
+      "title": "The author",
+      "blocks": [
+        {
+          "items": [
+            { "type": "slider", "id": "reward_cents", "text": "Suppose the archive distributes a $1.00 tip pool among its authors this week. How much of it should <em>this</em> author receive for this story?", "min": 0, "max": 100, "start": 50, "unit": "¢", "min_label": "0¢", "max_label": "100¢" }
+          ]
+        },
+        {
+          "title": "This author seems…",
+          "instructions": "Based only on the story you just read, how well do these describe the author?",
+          "randomize": true,
+          "items": [
+            { "type": "likert", "id": "WARM1", "text": "This author seems warm." },
+            { "type": "likert", "id": "WARM2", "text": "This author seems sincere." },
+            { "type": "likert", "id": "WARM3", "text": "This author seems good-natured." },
+            { "type": "attention", "id": "ATTN1", "text": "This is a check that you are reading carefully — for this item, please select ‘Somewhat agree’.", "correct": 5 },
+            { "type": "likert", "id": "COMP1", "text": "This author seems competent." },
+            { "type": "likert", "id": "COMP2", "text": "This author seems capable." },
+            { "type": "likert", "id": "COMP3", "text": "This author seems skillful." }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "choice",
+      "type": "custom",
+      "module": "choicePage"
+    },
+    {
+      "id": "mediators",
+      "type": "form",
+      "title": "A few more impressions",
+      "blocks": [
+        {
+          "title": "The author's effort",
+          "randomize": true,
+          "items": [
+            { "type": "likert", "id": "EFF1", "text": "How much effort did the author put into this story?", "scale": { "min": 1, "max": 7, "min_label": "Very little", "max_label": "A great deal" } },
+            { "type": "likert", "id": "EFF2", "text": "How much time do you think the author spent creating this story?", "scale": { "min": 1, "max": 7, "min_label": "Very little", "max_label": "A great deal" } },
+            { "type": "likert", "id": "EFF3", "text": "The author invested a great deal of work in this story." }
+          ]
+        },
+        {
+          "title": "The story's character",
+          "randomize": true,
+          "items": [
+            { "type": "likert", "id": "AUTH1", "text": "This story feels like a genuine expression of the author’s own voice." },
+            { "type": "likert", "id": "AUTH2", "text": "The author seems to have written this out of genuine passion for the story." },
+            { "type": "likert", "id": "AUTH3", "text": "This story is truly the author’s own creation." },
+            { "type": "likert", "id": "AUTH4_R", "text": "The story feels manufactured rather than genuinely created." }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "checks",
+      "type": "custom",
+      "module": "checksPage"
+    },
+    {
+      "id": "person",
+      "type": "form",
+      "title": "Finally, a little about you",
+      "subtitle": "These help us describe who took part. Answer as you wish.",
+      "blocks": [
+        {
+          "items": [
+            { "type": "likert", "id": "CID1", "text": "I identify with the fan-fiction / online-fiction community.", "scale": { "min": 1, "max": 7, "min_label": "Not at all", "max_label": "Very much" } },
+            { "type": "mcq", "id": "CID3", "text": "Do you have an account on AO3 or a similar fiction archive?", "options": ["Yes", "No"], "values": ["yes", "no"] }
+          ]
+        },
+        {
+          "title": "Views on AI (for context only)",
+          "items": [
+            { "type": "likert", "id": "AIA1", "text": "I am interested in using artificially intelligent systems in my daily life.", "scale": { "min": 1, "max": 7, "min_label": "Strongly disagree", "max_label": "Strongly agree", "labels": ["Strongly disagree", "Disagree", "Somewhat disagree", "Neither", "Somewhat agree", "Agree", "Strongly agree"] } },
+            { "type": "likert", "id": "AIA2", "text": "Artificial intelligence can help solve many world problems.", "scale": { "min": 1, "max": 7, "min_label": "Strongly disagree", "max_label": "Strongly agree", "labels": ["Strongly disagree", "Disagree", "Somewhat disagree", "Neither", "Somewhat agree", "Agree", "Strongly agree"] } },
+            { "type": "mcq", "id": "AIA3", "text": "Have you used generative-AI tools (e.g., ChatGPT) for writing?", "options": ["Never", "Occasionally", "Regularly"], "values": ["never", "occasionally", "regularly"] }
+          ]
+        },
+        {
+          "title": "Demographics",
+          "items": [
+            { "type": "mcq", "id": "age", "text": "Your age:", "options": ["18–24", "25–34", "35–44", "45–54", "55–64", "65+"], "values": ["18-24", "25-34", "35-44", "45-54", "55-64", "65+"] },
+            { "type": "mcq", "id": "gender", "text": "Your gender:", "options": ["Woman", "Man", "Non-binary", "Prefer to self-describe", "Prefer not to say"], "values": ["woman", "man", "nonbinary", "self", "na"] },
+            { "type": "mcq", "id": "country", "text": "Where do you currently live?", "options": ["United Kingdom", "United States", "Malaysia", "China", "Other"], "values": ["uk", "us", "my", "cn", "other"] },
+            { "type": "mcq", "id": "english_fluency", "text": "How would you rate your English reading ability?", "options": ["Native speaker", "Fluent", "Intermediate", "Basic"], "values": ["native", "fluent", "intermediate", "basic"] }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "debrief",
+      "type": "debrief",
+      "title": "What this study was really about — please read",
+      "reconsent": true,
+      "reconsent_text": "I have read this debrief and I am happy for my responses to be used in the research.",
+      "next_label": "Submit my responses",
+      "html": "<p><strong>Thank you.</strong> Now that you have finished, we can explain the study fully.</p><p>This study examines whether a single <strong>disclosure label</strong> changes how readers respond to a piece of writing, even when the writing is identical. Some participants saw a tag reading <em>“Created Using Generative AI”</em> on the work page; others did not. <strong>This label was assigned at random.</strong></p><p><strong>In fact, all three stories used in this study were written by humans</strong> (members of our research team). No AI system wrote any of the stories, regardless of which tags you saw. We used a brief cover story (describing the study only as being about “reading and reactions”) because telling you the exact hypothesis in advance would change the very reactions we are trying to measure. We are sorry for this small, temporary deception.</p><p>Because the label you saw may have been inaccurate, we want to give you the choice to withdraw your data. <strong>You will be paid in full either way.</strong> If you would prefer that we do <em>not</em> use your responses, simply leave the box below unticked.</p><p class=\"muted\">Questions or concerns? Contact the research team (details supplied on the Prolific study page). If reflecting on AI and creative work raised anything you'd like to discuss, you are welcome to get in touch.</p>"
+    }
+  ]
+}

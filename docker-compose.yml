@@ -1,0 +1,42 @@
+# Self-hosted deploy (EC2 / any VPS): copy .env.example -> .env, fill it in, then
+#   docker compose up -d --build
+# Caddy terminates HTTPS (automatic Let's Encrypt) and reverse-proxies to the app.
+# Data persists in the named volume `nhb_data` (back it up — see DEPLOY.md).
+services:
+  app:
+    build: .
+    environment:
+      PID_SALT: ${PID_SALT:?set PID_SALT in .env}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?set ADMIN_TOKEN in .env}
+      RNG_BASE_SEED: ${RNG_BASE_SEED:-20260611}
+      LLM_PROVIDER: ${LLM_PROVIDER:-offline}
+      LLM_MODEL: ${LLM_MODEL:-claude-haiku-4-5-20251001}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      COMPLETION_CODE_S3: ${COMPLETION_CODE_S3:-}
+      COMPLETION_CODE_S4: ${COMPLETION_CODE_S4:-}
+      DATA_DIR: /data
+    volumes:
+      - nhb_data:/data
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  nhb_data:      # immutable JSONL + SQLite mirror live here
+  caddy_data:
+  caddy_config:

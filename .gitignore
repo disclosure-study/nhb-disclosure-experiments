@@ -1,0 +1,26 @@
+# Collected data never goes in git (privacy + immutability live in exports).
+data/
+data_test*/
+server/data/
+server/data_test*/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# Secrets
+.env
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/

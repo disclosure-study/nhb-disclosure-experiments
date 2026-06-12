@@ -1,0 +1,40 @@
+# Render.com Blueprint — one-click deploy of the data-collection backend.
+# In the Render dashboard: New + > Blueprint > connect this repo > Apply.
+# (Free instances have NO persistent disk — see DEPLOY.md before a real run.)
+services:
+  - type: web
+    name: nhb-disclosure-experiments
+    runtime: python
+    plan: free
+    rootDir: .
+    buildCommand: pip install -r server/requirements.txt
+    startCommand: cd server && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      # Identity / security — generated secrets; keep PID_SALT off any device that
+      # also holds the pid->hash lookup table (deletion-on-request, GDPR §5).
+      - key: PID_SALT
+        generateValue: true
+      - key: ADMIN_TOKEN
+        generateValue: true
+      - key: RNG_BASE_SEED
+        value: "20260611"
+      # LLM assistant (Study 4). Leave the key unset to run the deterministic
+      # offline assistant; add ANTHROPIC_API_KEY to switch to the pinned model.
+      - key: LLM_PROVIDER
+        value: anthropic
+      - key: LLM_MODEL
+        value: claude-haiku-4-5-20251001
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # Where the immutable JSONL + SQLite mirror are written. For a REAL run,
+      # attach a paid Render Disk and point this at its mountPath (see DEPLOY.md).
+      - key: DATA_DIR
+        value: /opt/render/project/src/server/data
+      # Prolific completion codes (copy from your Prolific study pages).
+      - key: COMPLETION_CODE_S3
+        sync: false
+      - key: COMPLETION_CODE_S4
+        sync: false

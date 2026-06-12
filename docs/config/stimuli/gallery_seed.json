@@ -1,0 +1,112 @@
+{
+  "prompts": [
+    {
+      "id": "prompt_a",
+      "title": "An unexpected letter",
+      "text": "Write the opening scene (150-300 words) of a story that begins with an unexpected letter."
+    },
+    {
+      "id": "prompt_b",
+      "title": "The last shop open at night",
+      "text": "Write the opening scene (150-300 words) of a story set in the last shop still open at night."
+    }
+  ],
+  "pieces": [
+    {
+      "id": "g01",
+      "title": "Postmarked Nowhere",
+      "author": "saltwater_grammar",
+      "body_html": "<p>The envelope had no return address, only a postmark so smudged it could have come from anywhere or nowhere, and my own name spelled in a hand I hadn't seen since I was nine years old. I knew that handwriting the way you know a smell from childhood — instantly, bodily, before the mind catches up. My mother had been dead for fourteen years. I stood in the doorway with the cold coming in around my ankles and turned the letter over and over, as though the back might explain the front.</p><p>Inside was a single sheet, folded in thirds, and four words in that same impossible hand: <em>I never sent these.</em> Below it, smaller, an address three towns over that I had never heard of in my life — and a date. Tomorrow's date. Whatever this was, whoever was doing it, they were telling me it hadn't happened yet.</p>",
+      "likes_base": 112,
+      "ai_labeled": true
+    },
+    {
+      "id": "g02",
+      "title": "The Tuesday Slot",
+      "author": "ferns_and_ledgers",
+      "body_html": "<p>The letter arrived on a Tuesday, which was unusual, because nothing interesting ever arrived on a Tuesday. Bills came on Mondays. Catalogues came on Thursdays. But this was a Tuesday, and the envelope was thick and cream-colored and addressed to me in proper fountain pen, and I sat down at the kitchen table to open it with the particular care you give a thing that has clearly cost someone effort.</p><p>It was from a law firm I had never dealt with, in a city I had visited exactly once. They regretted to inform me, they wrote, that I was the sole surviving beneficiary of an estate belonging to a woman whose name I did not recognize. Enclosed was a key, taped to a square of cardboard. They asked me to come in person, at my earliest convenience, and to bring identification, and to tell no one until the matter was settled.</p>",
+      "likes_base": 47,
+      "ai_labeled": false
+    },
+    {
+      "id": "g03",
+      "title": "A Letter From the Past",
+      "author": "quill_n_things",
+      "body_html": "<p>It was a dark and quiet evening when the letter came. Sarah was sitting in her living room when she heard a knock at the door. She got up and went to the door and opened it, but there was nobody there. On the doormat was a letter with her name on it. She picked it up and looked at it. It was very mysterious.</p><p>Sarah took the letter inside and sat back down. She wondered who it could be from. She opened the envelope carefully and took out the letter. As she read it, her eyes went wide with surprise. She could not believe what she was reading. This was going to change everything, she thought to herself. Little did she know that her whole life was about to turn upside down forever.</p>",
+      "likes_base": 14,
+      "ai_labeled": false
+    },
+    {
+      "id": "g04",
+      "title": "Closing Time",
+      "author": "neon_after_dark",
+      "body_html": "<p>Marquez kept the hardware store open until midnight because the people who needed hardware at midnight were the people who needed it most. A leaking pipe doesn't wait for business hours. A lock that won't turn with a child asleep on the other side of the door doesn't wait. So he kept the lights on, the only yellow square on a street of dark storefronts, and he waited to see who the night would send him.</p><p>Tonight it sent a young woman in a thin jacket, no umbrella, soaked through. She didn't go to the plumbing aisle or the tools. She came straight to the counter and set down a single brass key, worn almost smooth, and said she needed a copy made, and she needed it to be perfect, and she didn't have much time. Her hands were shaking, and not, Marquez thought, from the cold.</p>",
+      "likes_base": 61,
+      "ai_labeled": true
+    },
+    {
+      "id": "g05",
+      "title": "The Lamplit Hour",
+      "author": "moth_to_the_page",
+      "body_html": "<p>At two in the morning the all-night pharmacy belonged to the insomniacs, the new parents, and the heartbroken, and Priya had learned to tell them apart by the way they walked the aisles. The insomniacs drifted, reading every label. The new parents moved fast and stricken, already exhausted in a way that would last for years. The heartbroken simply stood, somewhere around the cold-and-flu section, holding nothing, looking at nothing, until they remembered why they'd come.</p><p>The man who came in at quarter past two was none of these, and that was what made Priya look up from her crossword. He walked like someone who knew exactly what he wanted and dreaded finding it. He went straight to the back, to the little window where she filled the prescriptions, and he slid a slip of paper across the counter without a word, and when she read what was written on it she understood at once why he'd waited until the rest of the world was asleep.</p>",
+      "likes_base": 98,
+      "ai_labeled": false
+    },
+    {
+      "id": "g06",
+      "title": "The Shop on the Corner",
+      "author": "midnight_typer99",
+      "body_html": "<p>It was late at night and the shop was still open. It was the only shop still open on the whole street. The owner was a tired old man who had worked there for many years. He was just about to close up when the bell over the door rang. A customer had come in.</p><p>The man looked up to see who it was. It was a stranger he had never seen before. The stranger walked up to the counter and looked at him. 'Can I help you?' the old man asked. The stranger did not say anything at first. Then he reached into his coat and pulled something out. The old man gasped when he saw what it was. He knew that his quiet night was about to become very interesting indeed.</p>",
+      "likes_base": 9,
+      "ai_labeled": false
+    },
+    {
+      "id": "g07",
+      "title": "Return to Sender",
+      "author": "paperweight_patrick",
+      "body_html": "<p>The letter was addressed to a man who had lived in my flat before me, a Mr. E. Halloran, and ordinarily I would have written 'not at this address' on the front and dropped it back in the postbox. But it was the third one this month, all in the same shaky handwriting, all marked PERSONAL and URGENT, and the previous two had felt like a small kindness to ignore. This one felt like a thing I was failing to do.</p><p>So I steamed it open, which I am not proud of. Inside was no letter at all — just a photograph, black and white, of a doorway I recognized immediately, because it was the doorway I walked through every single day. My doorway. This building. And standing in it, dated forty years before I was born, was a woman who looked exactly, impossibly, like me.</p>",
+      "likes_base": 73,
+      "ai_labeled": false
+    },
+    {
+      "id": "g08",
+      "title": "Twenty-Four Hours",
+      "author": "graveyard_shift_glenn",
+      "body_html": "<p>The launderette stayed open all night, not because anyone planned it that way but because nobody had ever found the key to lock it, and so it simply ran, humming and warm, a refuge of fluorescent light and the smell of detergent for anyone who had nowhere better to be at three in the morning. I went there to think. The machines spun whether you fed them coins or not, and there was something about watching other people's forgotten clothes turn and turn that quieted my mind.</p><p>That night I wasn't alone. A girl of maybe sixteen sat on the folding table with her knees drawn up, watching an empty machine spin nothing, and on the plastic chair beside her sat a suitcase far too large and far too old to belong to anyone her age. When she saw me looking she said, very calmly, as if it were the most reasonable thing in the world: 'You can't tell anyone you saw me. Especially not after midnight. That's when they come looking.'</p>",
+      "likes_base": 89,
+      "ai_labeled": false
+    },
+    {
+      "id": "g09",
+      "title": "The Mysterious Envelope",
+      "author": "story_machine_sam",
+      "body_html": "<p>John was a normal man who lived a normal life. He woke up every day and went to work and came home again. Nothing exciting ever happened to him. But all of that was about to change in ways he could never have imagined.</p><p>One day, John found a letter on his desk at work. He did not know how it got there. There was no name on the envelope, only a strange symbol drawn in red ink. John opened the letter and began to read. The more he read, the more confused and frightened he became. The letter said that he had been chosen, and that there was no way to refuse. John's hands trembled as he realized that his ordinary life was over, and a great adventure was about to begin.</p>",
+      "likes_base": 21,
+      "ai_labeled": true
+    },
+    {
+      "id": "g10",
+      "title": "Night Window",
+      "author": "amber_hours",
+      "body_html": "<p>The bakery shouldn't have been open at that hour. Every other window on the high street was dark, the shutters down, the chairs stacked. But the bakery glowed, and the smell of it reached me half a block away — warm bread, sugar, something with cinnamon — and I followed it the way you follow a memory, without quite deciding to.</p><p>Inside, a woman in a flour-dusted apron was sliding trays into the oven, though there was nobody to sell to and no reason I could see to be baking at midnight. She looked up when the bell rang and didn't seem surprised to see me, which was strange. 'You're early,' she said, before I'd said a word. 'Or late. I can never tell with your sort.' And she went on loading the oven as though I were expected, as though this had all been arranged long before I ever smelled the bread.</p>",
+      "likes_base": 55,
+      "ai_labeled": false
+    },
+    {
+      "id": "g11",
+      "title": "Dead Letter Office",
+      "author": "vellum_and_static",
+      "body_html": "<p>I sorted undeliverable mail for a living, which meant I spent my days reading the addresses of people who no longer existed — the moved, the dead, the never-quite-real — and deciding what the post owed them. Most of it was nothing. Catalogues for the deceased. Birthday cards to demolished houses. But that Tuesday I pulled an envelope from the bin that stopped my hands cold, because the address it was trying to reach was mine, and the name on it was mine, and the date of the postmark was nine years in the future.</p><p>I am not a fanciful person. I checked it three times. I held it to the light. Then I did the thing my training expressly forbade, the thing you never do with undeliverable mail, and I slit it open with my thumb — and read, in my own handwriting, a warning I had apparently not yet decided to write.</p>",
+      "likes_base": 104,
+      "ai_labeled": true
+    },
+    {
+      "id": "g12",
+      "title": "Open All Hours",
+      "author": "plotbunny_pete",
+      "body_html": "<p>The little shop on the corner was the last one open at night. All the other shops had closed hours ago, but this one stayed open no matter what. Inside, the shelves were full of all kinds of interesting things, from candles to clocks to dusty old books. It was the kind of place where anything could happen.</p><p>A young woman walked in out of the rain. She looked around at all the strange items on the shelves. The shopkeeper smiled at her in a mysterious way. 'Welcome,' he said. 'I have been expecting you.' The young woman did not understand what he meant, but she had a feeling that this was not going to be an ordinary night. Something told her that her life would never be the same again.</p>",
+      "likes_base": 17,
+      "ai_labeled": false
+    }
+  ]
+}

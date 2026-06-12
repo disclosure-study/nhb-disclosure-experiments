@@ -1,0 +1,6 @@
+# NHB disclosure-experiments platform — server dependencies
+# Pinned-ish; deploys cleanly on Python 3.11/3.12.
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+httpx==0.28.1
+python-multipart==0.0.20
