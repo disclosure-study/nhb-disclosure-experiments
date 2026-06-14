@@ -3,74 +3,53 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NHB Disclosure Experiments — platform</title>
+  <title>Online Research Studies</title>
   <link rel="stylesheet" href="shared/css/app.css">
   <style>
-    .hero{max-width:820px;margin:3vh auto 1rem;padding:0 1rem}
-    .studies{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;max-width:820px;margin:0 auto;padding:0 1rem}
-    @media(max-width:680px){.studies{grid-template-columns:1fr}}
+    .hero{max-width:680px;margin:7vh auto 1.4rem;padding:0 1rem;text-align:center}
+    .studies{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem;max-width:760px;margin:0 auto;padding:0 1rem}
+    @media(max-width:640px){.studies{grid-template-columns:1fr}}
     .scard{display:block;text-decoration:none;color:inherit}
     .scard .card{height:100%;display:flex;flex-direction:column;transition:.15s,box-shadow .15s}
-    .scard .card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 10px 30px rgba(20,30,60,.12)}
+    .scard .card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:var(--shadow)}
     .scard .card p:last-child{margin-top:auto;margin-bottom:0;padding-top:.8rem}
-    .scard h2{margin-top:.1rem}
-    .stag{font-size:.75rem;color:var(--accent-d);background:#eef3fb;border-radius:999px;padding:.1rem .55rem;display:inline-block;margin-bottom:.5rem}
-    .foot{max-width:820px;margin:1.6rem auto;padding:0 1rem;font-size:.85rem;color:var(--muted)}
-    .modeline{max-width:820px;margin:.4rem auto 0;padding:0 1rem}
+    .foot{max-width:760px;margin:2rem auto;padding:0 1rem;font-size:.8rem;color:var(--muted);text-align:center}
   </style>
 </head>
 <body>
   <div class="hero">
-    <h1 style="margin-bottom:.3rem">The Social Cost of Disclosing AI Use — experiment platform</h1>
-    <div class="notice info" style="margin:.7rem 0">
-      All study content is in <strong>English</strong> — please take part only if you read and write English comfortably.<br>
-      <span lang="zh">本研究全部内容为<strong>英文</strong>，请仅在您能顺畅读写英文的情况下参与。</span>
+    <h1>Online Research Studies</h1>
+    <p class="lead">Thank you for your interest. If you were invited to take part, please open the
+      <strong>link from your invitation</strong> and enter your invitation code.</p>
+    <p class="muted" lang="zh">感谢您的关注。如果您受邀参加研究，请打开<strong>邀请中提供的链接</strong>并输入您的邀请码。</p>
+    <div class="notice info" style="text-align:left;margin-top:1rem">
+      All studies are conducted in <strong>English</strong> — please take part only if you read and write
+      English comfortably.<br>
+      <span lang="zh">所有研究均以<strong>英文</strong>进行，请仅在您能顺畅读写英文的情况下参与。</span>
     </div>
-    <div class="modeline"><span id="modeflag" class="modeflag">checking…</span>
-      <span class="muted" id="ver" style="font-size:.8rem"></span></div>
   </div>
 
   <div class="studies">
     <a class="scard" href="study3/">
       <div class="card">
-        <span class="stag">Study 3 · between-subjects, 2×3</span>
-        <h2>Disclosure-Label Experiment</h2>
-        <p class="muted">Does an <em>“Created Using Generative AI”</em> label lower readers' endorsement of
-          identical human-written fiction? Archive-style reading page → kudos intent (primary) →
-          behavioral click-through → effort/authenticity mechanism.</p>
-        <p class="muted" lang="zh" style="margin-top:.5rem">披露 AI 使用的标签是否会降低读者对相同人类创作小说的认可？仿档案阅读页面 → 点赞意愿（主要指标）→ 行为点击 → 努力/真实性机制。</p>
-        <p><span class="btn">Open Study 3 →</span></p>
+        <h2>Fiction Archive Reading Study</h2>
+        <p class="muted">A study about how people read and react to short online fiction. About 13–15 minutes.</p>
+        <p class="muted" lang="zh">一项关于人们如何阅读并回应网络短篇小说的研究。约 13–15 分钟。</p>
+        <p><span class="btn">Enter →</span></p>
       </div>
     </a>
     <a class="scard" href="study4/">
       <div class="card">
-        <span class="stag">Study 4 · 3 regimes, supply-side</span>
-        <h2>The Disclosure Decision Under Regimes</h2>
-        <p class="muted">Do stigma / benefit regimes change whether writers <em>truthfully</em> label their
-          own AI use? Gallery (regime carrier) → writing with a logged AI assistant → regime revealed →
-          label choice. Truthful disclosure given logged use is the primary outcome.</p>
-        <p class="muted" lang="zh" style="margin-top:.5rem">污名/受益规制是否会改变写作者是否如实标注自己对 AI 的使用？展廊（规制载体）→ 使用带记录的 AI 助手写作 → 揭示规制 → 标签选择。如实披露（在有 AI 使用记录的前提下）是主要结果。</p>
-        <p><span class="btn">Open Study 4 →</span></p>
+        <h2>WriteGallery — Community Writing</h2>
+        <p class="muted">A study about creative writing and online galleries. About 35 minutes.</p>
+        <p class="muted" lang="zh">一项关于创意写作与在线展廊的研究。约 35 分钟。</p>
+        <p><span class="btn">Enter →</span></p>
       </div>
     </a>
   </div>
 
   <div class="foot">
-    <p><strong>Researchers:</strong> <a href="admin">live monitoring dashboard</a>
-      — live cell counts, the Study-4 adaptive AI-user counter, the intake kill switch, and raw-data
-      export (requires the admin key).</p>
+    <p>Conducted under university research-ethics approval. <a href="admin">Researcher access</a>.</p>
   </div>
-
-  <script>
-    fetch('api/health').then(r => r.json()).then(h => {
-      const f = document.getElementById('modeflag');
-      f.textContent = 'LIVE — server logging'; f.className = 'modeflag server';
-      document.getElementById('ver').textContent =
-        ' platform ' + h.platform_version + ' · assistant: ' + (h.llm_model || h.llm_provider);
-    }).catch(() => {
-      const f = document.getElementById('modeflag');
-      f.textContent = 'PREVIEW — browser only (no backend)'; f.className = 'modeflag preview';
-    });
-  </script>
 </body>
 </html>
