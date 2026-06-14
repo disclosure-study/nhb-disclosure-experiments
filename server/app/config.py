@@ -134,10 +134,15 @@ LLM_SYSTEM_PROMPT = _env(
     "LLM_SYSTEM_PROMPT",
     "You are a neutral writing assistant embedded in a creative-writing tool. "
     "Help the writer with short, concrete suggestions for a piece of original "
-    "short fiction. Keep responses brief (no more than a few sentences unless "
-    "asked to continue a passage). Keep all content suitable for a general "
-    "audience (no explicit sexual content, graphic violence, or slurs). Never "
-    "ask for or use personal information about the writer.",
+    "short fiction. "
+    "Always reply with ONLY the suggested story text itself, ready to paste "
+    "straight into the draft: no preamble or sign-off, no explanation, no "
+    "quotation marks around it, no labels, and never multiple or numbered options "
+    "(do not write 'Here is', 'Option 1', '1.', etc.) — give one single best "
+    "suggestion. Keep responses brief (a sentence or two for an opening; two or "
+    "three sentences when continuing). Keep all content suitable for a general "
+    "audience (no explicit sexual content, graphic violence, or slurs). Never ask "
+    "for or use personal information about the writer.",
 )
 
 # If no key is present, force offline mode regardless of provider.

@@ -14,12 +14,41 @@ preview and testing without any secret. Offline responses are flagged source=
 from __future__ import annotations
 
 import hashlib
+import re
 import time
 from typing import Any
 
 import httpx
 
 from . import config
+
+
+# Strip conversational preamble / numbered "Option N" lists / wrapping quotes that
+# a chat model sometimes adds, leaving just the snippet the writer can paste.
+_PREAMBLE_RE = re.compile(
+    r"^\s*(sure|certainly|of course|absolutely|here(?:\s|')?s?|here are|below(?: is| are)?|"
+    r"i(?:\s|')?(?:d| would)? (?:suggest|recommend|propose)|how about|try this|"
+    r"one (?:option|idea)|a (?:few|couple)|some (?:options|ideas))[^\n:]*:\s*", re.I)
+_OPTION_RE = re.compile(r"^\s*(?:option\s*\d+\s*[:.\)\-]?|\d+\s*[.\)]\s*)", re.I)
+
+
+def clean_output(text: str) -> str:
+    t = (text or "").strip()
+    if not t:
+        return t
+    t = _PREAMBLE_RE.sub("", t).strip()
+    lines = t.split("\n")
+    opt_idx = [i for i, l in enumerate(lines) if _OPTION_RE.match(l)]
+    if len(opt_idx) >= 2:                       # multiple options -> keep only the first
+        block = lines[opt_idx[0]:opt_idx[1]]
+        block[0] = _OPTION_RE.sub("", block[0])
+        t = "\n".join(block).strip()
+    elif opt_idx and opt_idx[0] == 0:           # single leading "1." / "Option 1:"
+        lines[0] = _OPTION_RE.sub("", lines[0])
+        t = "\n".join(lines).strip()
+    if len(t) >= 2 and t[0] in "\"“‘'" and t[-1] in "\"”’'":
+        t = t[1:-1].strip()
+    return t or (text or "").strip()
 
 # Light safety filter — refuse obviously out-of-scope prompts; full moderation is
 # the pinned model's job, this is just a cheap guard + an audit hook.
@@ -43,22 +72,33 @@ def build_user_prompt(
     theme = (prompt_theme or "a short story").strip()
     if affordance == "suggest_opening":
         return (
-            f"Suggest a vivid opening sentence or two (under 60 words) for a short "
-            f"story on this theme: {theme}. Give only the sentences."
+            f"Write a single vivid opening — one or two sentences, under 50 words — "
+            f"for a short story on this theme: {theme}.\n"
+            "Output ONLY the opening text itself: no preamble, no explanation, no "
+            "quotation marks, and do not offer multiple options."
         )
     if affordance == "continue":
         return (
-            "Continue this draft naturally with the next 2-3 sentences. Match the "
-            f"voice and tense. Draft so far:\n\n{draft or '(empty)'}"
+            "Continue this draft naturally with the next two or three sentences, "
+            "matching the voice and tense.\n"
+            "Output ONLY the new continuation text to append: no preamble, no "
+            "explanation, no quotation marks, no options.\n\n"
+            f"Draft so far:\n{draft or '(empty)'}"
         )
     if affordance == "polish":
         return (
-            "Rewrite the following passage to be clearer and more vivid while "
-            f"keeping the writer's voice and meaning:\n\n{selected or draft}"
+            "Rewrite the following passage to be clearer and more vivid while keeping "
+            "the writer's voice and meaning.\n"
+            "Output ONLY the rewritten passage: no preamble, no explanation, no "
+            "quotation marks, no options.\n\n"
+            f"Passage:\n{selected or draft}"
         )
     # free-form ask
     ctx = f"\n\nCurrent draft for context:\n{draft}" if draft else ""
-    return f"{user_message}{ctx}"
+    return (
+        f"{user_message}\n\nReply with only the text the writer can use directly — "
+        f"no preamble or meta-commentary.{ctx}"
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -175,6 +215,7 @@ async def generate(
                 text = await _call_openai(user_prompt)
             else:
                 raise ValueError(f"unknown provider {config.LLM_PROVIDER}")
+            text = clean_output(text)
             return {
                 "text": text, "source": "llm", "model": config.LLM_MODEL,
                 "latency_ms": int((time.monotonic() - t0) * 1000), "error": None,
