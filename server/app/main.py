@@ -342,6 +342,8 @@ async def s4_assistant(req: AssistantReq) -> dict[str, Any]:
 def session_complete(req: CompleteReq) -> dict[str, Any]:
     if not db.is_known_token(req.token):
         return {"ok": False, "reason": "unknown_token"}
+    if db.is_test_token(req.token):       # test sessions get a distinct, non-payable code
+        return {"ok": True, "completion_code": "TEST-COMPLETE", "test": True}
     code = config.COMPLETION_CODES.get(req.study, "COMPLETE")
     db.update_participant(
         req.token, status="completed", completed_ts=events._now_iso(), completion_code=code
