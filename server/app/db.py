@@ -90,6 +90,15 @@ def init_db() -> None:
                     active      INTEGER DEFAULT 1,
                     created_ts  TEXT
                 );
+
+                CREATE TABLE IF NOT EXISTS applications (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name        TEXT,
+                    contact     TEXT,
+                    message     TEXT,
+                    created_ts  TEXT,
+                    meta        TEXT
+                );
                 """
             )
             conn.commit()
@@ -245,6 +254,61 @@ def invite_summary() -> dict[str, int]:
         used = conn.execute(
             "SELECT COUNT(*) n FROM invite_codes WHERE is_test=0 AND used_count>0").fetchone()["n"]
         return {"total": int(total), "used": int(used)}
+    finally:
+        conn.close()
+
+
+# --------------------------------------------------------------------------- #
+# Experiment status (open / closed-demo) + participation applications
+# --------------------------------------------------------------------------- #
+def experiment_status() -> str:
+    return get_setting("experiment_status") or "open"
+
+
+def experiment_closed() -> bool:
+    return experiment_status() == "closed"
+
+
+def peek_invite(code: str) -> Optional[sqlite3.Row]:
+    """Look up an invite without consuming it (used in demo mode)."""
+    code = (code or "").strip()
+    if not code:
+        return None
+    conn = get_conn()
+    try:
+        return conn.execute("SELECT * FROM invite_codes WHERE code=?", (code,)).fetchone()
+    finally:
+        conn.close()
+
+
+def insert_application(name: str, contact: str, message: str, meta: str = "") -> None:
+    with _WRITE_LOCK:
+        conn = get_conn()
+        try:
+            conn.execute(
+                "INSERT INTO applications(name,contact,message,created_ts,meta) VALUES(?,?,?,?,?)",
+                (name, contact, message, _now(), meta),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+
+def list_applications(limit: int = 500) -> list[dict[str, Any]]:
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT id,name,contact,message,created_ts FROM applications ORDER BY id DESC LIMIT ?",
+            (limit,)).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def application_count() -> int:
+    conn = get_conn()
+    try:
+        return int(conn.execute("SELECT COUNT(*) n FROM applications").fetchone()["n"])
     finally:
         conn.close()
 

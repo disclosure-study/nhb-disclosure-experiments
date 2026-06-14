@@ -267,9 +267,14 @@ NHB.runner = (function () {
     pages = config.pages || [];
     await NHB.api.init();
     mountChrome();
+    const health = NHB.api.getHealth() || {};
+    // Experiment finished -> show the "data collection complete" page (apply form
+    // + a demonstration-code field). Only relevant in server mode.
+    if (NHB.api.getMode() === 'server' && health.experiment_status === 'closed') {
+      renderClosedPage(); return;
+    }
     // Server mode: gate on an invitation code (unless the server disables it).
     // Preview mode: no gate (no data is collected anyway).
-    const health = NHB.api.getHealth() || {};
     const needInvite = NHB.api.getMode() === 'server' && health.invite_required !== false;
     if (needInvite) renderInviteGate(null);
     else beginSession(null);
@@ -319,9 +324,9 @@ NHB.runner = (function () {
     const res = await NHB.logger.startSession(cfg.study, { assignFn: buildAssignFn(), invite });
     if (!res.ok) {
       if (['bad_invite', 'invite_used', 'invite_required', 'inactive'].includes(res.reason)) {
-        renderInviteGate(res.reason);
-        return;
+        renderInviteGate(res.reason); return;
       }
+      if (res.reason === 'experiment_closed') { renderClosedPage(); return; }
       appEl.innerHTML = `<div class="card"><h1 class="page-title">Study unavailable</h1><p>${
         res.reason === 'already_participated'
           ? 'Our records show you have already taken part in this study.'
@@ -329,6 +334,10 @@ NHB.runner = (function () {
       }</p></div>`;
       return;
     }
+    proceedSession(res);
+  }
+
+  async function proceedSession(res) {
     if (res.test) {
       alert('TEST MODE — this is a test run. Your responses will NOT be saved.\n\n' +
         '测试模式 — 这是测试运行，您的回答不会被保存。');
@@ -340,6 +349,73 @@ NHB.runner = (function () {
     log('study_loaded', { cond, mode: NHB.logger.getMode(), test: !!res.test,
       platform_version: NHB.platform_version });
     renderCurrent();
+  }
+
+  function renderClosedPage(demoErr) {
+    appEl.innerHTML = '';
+    const card = el('div', 'card');
+    card.innerHTML =
+      '<h1 class="page-title">This study has finished</h1>' +
+      '<p>Thank you for your interest. Data collection for this study is complete, so it is no longer ' +
+      'accepting participants.</p>' +
+      '<p class="muted" lang="zh">感谢您的关注。本研究的数据收集已结束，目前不再接受新的参与者。</p>' +
+      '<div class="subform"><h2>Interested in taking part or learning more?</h2>' +
+      '<p class="muted">Leave a message and the research team may be in touch. ' +
+      '<span lang="zh">留下您的留言，研究团队可能会与您联系。</span></p>' +
+      '<p class="muted" style="font-size:.82rem">Optional — anything you enter is stored only so the ' +
+      'research team can contact you, and is seen only by them. ' +
+      '<span lang="zh">选填 — 您填写的信息仅用于研究团队与您联系，且仅研究团队可见。</span></p>' +
+      '<input id="apName" type="text" placeholder="Name (optional) · 姓名（可选）">' +
+      '<input id="apContact" type="text" placeholder="Email or contact (optional) · 邮箱 / 联系方式（可选）">' +
+      '<textarea id="apMsg" placeholder="Your message · 您的留言"></textarea>' +
+      '<div id="apActions"></div><div class="dwell-note" id="apResult"></div></div>' +
+      '<div class="subform"><h2>Just want to explore the study?</h2>' +
+      '<p class="muted">Enter the demonstration code to try it — nothing is saved. ' +
+      '<span lang="zh">输入演示码即可试用，不会保存任何数据。</span></p>' +
+      '<input id="demoCode" type="text" autocomplete="off" spellcheck="false" placeholder="Demonstration code · 演示码">' +
+      '<div id="demoActions"></div>' + (demoErr ? `<div class="err">${demoErr}</div>` : '') + '</div>';
+    appEl.appendChild(card);
+
+    const applyBtn = el('button', 'btn', 'Send message · 发送');
+    card.querySelector('#apActions').appendChild(applyBtn);
+    applyBtn.addEventListener('click', async () => {
+      const message = card.querySelector('#apMsg').value.trim();
+      const out = card.querySelector('#apResult');
+      if (!message) { out.textContent = 'Please write a message. 请填写留言。'; return; }
+      applyBtn.disabled = true;
+      let res = null;
+      try {
+        res = await NHB.api.post('/api/apply', {
+          name: card.querySelector('#apName').value,
+          contact: card.querySelector('#apContact').value, message });
+      } catch (e) { /* network */ }
+      if (res && res.ok) {
+        out.textContent = 'Thank you — your message has been received. 已收到您的留言，谢谢。';
+        card.querySelector('#apMsg').value = '';
+        card.querySelector('#apName').value = '';
+        card.querySelector('#apContact').value = '';
+      } else { out.textContent = 'Sorry, please try again later. 抱歉，请稍后再试。'; applyBtn.disabled = false; }
+    });
+
+    const demoBtn = el('button', 'btn secondary', 'Try the demo · 试用');
+    card.querySelector('#demoActions').appendChild(demoBtn);
+    async function tryDemo() {
+      const code = card.querySelector('#demoCode').value.trim();
+      if (!code) return;
+      demoBtn.disabled = true;
+      const res = await NHB.logger.startSession(cfg.study, { assignFn: buildAssignFn(), invite: code });
+      if (!res.ok) {
+        demoBtn.disabled = false;
+        let e = card.querySelector('#demoErrLine');
+        if (!e) { e = el('div', 'err'); e.id = 'demoErrLine'; card.querySelector('#demoActions').after(e); }
+        e.textContent = res.reason === 'experiment_closed'
+          ? 'Only the demonstration code works here. 仅演示码可用。' : gateError(res.reason);
+        return;
+      }
+      proceedSession(res);
+    }
+    demoBtn.addEventListener('click', tryDemo);
+    card.querySelector('#demoCode').addEventListener('keydown', e => { if (e.key === 'Enter') tryDemo(); });
   }
 
   return { start, registerModule, currentPageId: null, getData: () => data, getCond: () => cond };

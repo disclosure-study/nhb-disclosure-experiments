@@ -112,6 +112,11 @@ input[type=range]{flex:1;accent-color:var(--accent);height:6px}
 .gate input#inviteInput{margin-top:.5rem;max-width:360px;font-size:1.05rem;letter-spacing:.05em}
 .modeflag.test{background:#fef3c7;color:#92400e;border-color:#fde68a;font-weight:700}
 [lang=zh]{line-height:1.7}
+.subform{margin-top:1.6rem;padding-top:1.2rem;border-top:1px solid var(--line)}
+.subform h2{font-size:1.05rem;margin-bottom:.3rem}
+.subform input,.subform textarea{margin:.45rem 0;max-width:420px}
+.subform textarea{min-height:90px;max-width:100%}
+.subform .btn{margin-top:.3rem}
 
 /* event inspector (preview / debug) */
 #inspector{position:fixed;bottom:0;left:0;right:0;z-index:50;font-family:ui-monospace,monospace}

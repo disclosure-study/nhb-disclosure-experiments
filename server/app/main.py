@@ -85,7 +85,9 @@ _FAIL_MAX = 30
 def _client_ip(request: Request) -> str:
     xff = request.headers.get("x-forwarded-for", "")
     if xff:
-        return xff.split(",")[0].strip()
+        # Use the LAST hop — the address our own reverse proxy (Caddy) appended.
+        # The leftmost entries are client-supplied and spoofable, so don't trust them.
+        return xff.split(",")[-1].strip()
     return request.client.host if request.client else "?"
 
 
@@ -98,6 +100,19 @@ def _invite_rate_limited(ip: str) -> bool:
 
 def _record_invite_fail(ip: str) -> None:
     _INVITE_FAILS.setdefault(ip, []).append(time.time())
+
+
+# Anti-spam throttle for the public "apply / leave a message" form.
+_APPLY_HITS: dict[str, list[float]] = {}
+_APPLY_WINDOW = 600.0
+_APPLY_MAX = 8
+
+
+def _apply_rate_limited(ip: str) -> bool:
+    now = time.time()
+    hits = [t for t in _APPLY_HITS.get(ip, []) if now - t < _APPLY_WINDOW]
+    _APPLY_HITS[ip] = hits
+    return len(hits) >= _APPLY_MAX
 
 
 # --------------------------------------------------------------------------- #
@@ -141,6 +156,12 @@ class CompleteReq(BaseModel):
     summary: dict[str, Any] | None = None
 
 
+class ApplyReq(BaseModel):
+    name: str | None = ""
+    contact: str | None = ""
+    message: str
+
+
 # --------------------------------------------------------------------------- #
 # Health
 # --------------------------------------------------------------------------- #
@@ -150,6 +171,7 @@ def health() -> dict[str, Any]:
         "ok": True,
         "platform_version": config.PLATFORM_VERSION,
         "intake_open": db.intake_open(),
+        "experiment_status": db.experiment_status(),
         "invite_required": config.INVITE_REQUIRED,
         "llm_provider": config.LLM_PROVIDER,
         "llm_model": config.LLM_MODEL if config.LLM_PROVIDER != "offline" else "offline-canned",
@@ -167,25 +189,33 @@ def session_start(req: StartReq, request: Request) -> dict[str, Any]:
     study = req.study.lower()
     if study not in ("s3", "s4"):
         return {"ok": False, "reason": "bad_study"}
-    if not db.intake_open():
-        return {"ok": False, "reason": "intake_closed"}
 
     pid = (req.prolific or {}).get("pid") or (req.prolific or {}).get("PROLIFIC_PID")
     pid_hash = _hash_pid(pid)
-    if pid_hash and db.pid_already_used(study, pid_hash):
-        return {"ok": False, "reason": "already_participated"}
-
-    # Invitation-code gate (access control). Consumed only once we know we will
-    # open a session (i.e. after the duplicate-PID check above).
     is_test = False
-    if config.INVITE_REQUIRED:
-        ip = _client_ip(request)
-        if _invite_rate_limited(ip):
-            return {"ok": False, "reason": "rate_limited"}
-        valid, is_test, reason = db.validate_and_consume_invite(req.invite or "")
-        if not valid:
-            _record_invite_fail(ip)
-            return {"ok": False, "reason": reason or "bad_invite"}
+
+    if db.experiment_closed():
+        # Demonstration mode: data collection is finished. Only the test code works
+        # (a no-store demo); real codes are turned away with the "finished" page.
+        row = db.peek_invite(req.invite or "")
+        if not (row and row["is_test"]):
+            return {"ok": False, "reason": "experiment_closed"}
+        is_test = True
+    else:
+        if not db.intake_open():
+            return {"ok": False, "reason": "intake_closed"}
+        if pid_hash and db.pid_already_used(study, pid_hash):
+            return {"ok": False, "reason": "already_participated"}
+        # Invitation-code gate. A limited-use code is consumed only here, once we
+        # know intake is open and this PID has not already taken part.
+        if config.INVITE_REQUIRED:
+            ip = _client_ip(request)
+            if _invite_rate_limited(ip):
+                return {"ok": False, "reason": "rate_limited"}
+            valid, is_test, reason = db.validate_and_consume_invite(req.invite or "")
+            if not valid:
+                _record_invite_fail(ip)
+                return {"ok": False, "reason": reason or "bad_invite"}
 
     a = randomizer.assign(study)
     token = secrets.token_urlsafe(16)
@@ -353,6 +383,25 @@ def session_complete(req: CompleteReq) -> dict[str, Any]:
     return {"ok": True, "completion_code": code}
 
 
+@app.post("/api/apply")
+def apply(req: ApplyReq, request: Request) -> dict[str, Any]:
+    """Public 'apply to take part / leave a message' form (shown when the
+    experiment is finished). Stored for the researcher; rate-limited per IP."""
+    ip = _client_ip(request)
+    if _apply_rate_limited(ip):
+        return {"ok": False, "reason": "rate_limited"}
+    message = (req.message or "").strip()[:2000]
+    if not message:
+        return {"ok": False, "reason": "empty"}
+    # Store a hashed (pseudonymous) IP only — enough to spot abuse, not raw PII.
+    db.insert_application(
+        (req.name or "").strip()[:200], (req.contact or "").strip()[:200], message,
+        meta=(_hash_pid(ip) or "")[:16],
+    )
+    _APPLY_HITS.setdefault(ip, []).append(time.time())
+    return {"ok": True}
+
+
 # --------------------------------------------------------------------------- #
 # Admin
 # --------------------------------------------------------------------------- #
@@ -443,6 +492,23 @@ def admin_invites_list(request: Request) -> JSONResponse:
         "test_code": config.INVITE_TEST_CODE,
         "invites": db.list_invites(),
     })
+
+
+@app.post("/api/admin/experiment")
+def admin_experiment(request: Request) -> JSONResponse:
+    if not _check_key(request):
+        return JSONResponse({"ok": False, "reason": "unauthorized"}, status_code=401)
+    status = request.query_params.get("status", "open").lower()
+    status = "closed" if status in ("closed", "done", "stop", "finished") else "open"
+    db.set_setting("experiment_status", status)
+    return JSONResponse({"ok": True, "experiment_status": status})
+
+
+@app.get("/api/admin/applications")
+def admin_applications(request: Request) -> JSONResponse:
+    if not _check_key(request):
+        return JSONResponse({"ok": False, "reason": "unauthorized"}, status_code=401)
+    return JSONResponse({"ok": True, "applications": db.list_applications()})
 
 
 # --------------------------------------------------------------------------- #

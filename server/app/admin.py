@@ -78,6 +78,8 @@ def gather_stats() -> dict[str, Any]:
             **_s4_breakdown(s4_cells),
         },
         "invites": db.invite_summary(),
+        "experiment_status": db.experiment_status(),
+        "applications": db.application_count(),
         "recent": db.recent_events(30),
     }
 
@@ -155,6 +157,12 @@ input.adm{padding:.35rem .5rem;border:1px solid var(--line);border-radius:6px;fo
 <header><div><strong>Experiment monitor</strong> &nbsp;<span class="v" id="ver"></span></div>
 <div id="intake"></div></header>
 <main>
+<div class="card"><h2>Experiment status</h2>
+<p>Status: <span id="expStatus"></span></p>
+<p><small class="m">When you finish the experiment, real participants see a "data collection complete" page where they can leave a message to apply; the <strong>test code still works</strong> so the platform can be used for demonstration.</small></p>
+<button class="kill" onclick="setExp('closed')">&#9632; Finish experiment (demonstration only)</button>
+<button class="open-btn" onclick="setExp('open')">&#9654; Reopen for data collection</button>
+</div>
 <div class="card"><h2>Recruitment intake</h2>
 <p>Status: <span id="intakePill"></span> &nbsp; <small class="m">closing intake stops new participants; those mid-study still finish and get paid.</small></p>
 <button class="kill" onclick="setIntake(false)">Close intake (kill switch)</button>
@@ -191,6 +199,10 @@ input.adm{padding:.35rem .5rem;border:1px solid var(--line);border-radius:6px;fo
 <p><small class="m">Single-use (1) codes lock out if a participant refreshes; set 2&ndash;3 uses to tolerate refreshes.</small></p>
 <table id="inviteTable"></table>
 </div>
+<div class="card"><h2>Applications / messages <span id="appCount" class="m"></span></h2>
+<p><small class="m">Messages left by people on the "experiment finished" page.</small></p>
+<table id="appTable"></table>
+</div>
 <div class="card"><h2>Recent events</h2><div class="feed" id="feed"></div></div>
 </main>
 <script>
@@ -213,6 +225,10 @@ async function load(){
   const ip=document.getElementById('intakePill');
   ip.className='pill '+(s.intake_open?'open':'closed');
   ip.textContent=s.intake_open?'OPEN':'CLOSED';
+  const es=document.getElementById('expStatus');
+  if(es){const closed=s.experiment_status==='closed';
+    es.innerHTML=closed?'<span class="pill closed">FINISHED — demonstration only</span>':'<span class="pill open">COLLECTING DATA</span>';}
+  const ac=document.getElementById('appCount'); if(ac) ac.textContent=s.applications?'('+s.applications+')':'';
   // S3
   document.getElementById('s3tot').textContent=s.s3.total;
   document.getElementById('s3comp').textContent=s.s3.completed;
@@ -259,5 +275,20 @@ async function loadInvites(){
   }
   document.getElementById('inviteTable').innerHTML=h;
 }
-load(); loadInvites(); setInterval(()=>{load();loadInvites();}, 5000);
+function esc(s){return (s||'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));}
+async function setExp(status){
+  if(status==='closed' && !confirm('Finish the experiment? Real participants will see a data-collection-complete page (and can leave a message). The test code still works for demos.')) return;
+  await fetch('/api/admin/experiment?status='+status,{method:'POST',headers:hdr()});
+  load(); loadApps();
+}
+async function loadApps(){
+  let r; try{ r=await (await fetch('/api/admin/applications?key='+encodeURIComponent(KEY))).json(); }catch(e){return;}
+  if(!r.ok) return;
+  let h='<tr><th>when</th><th>name</th><th>contact</th><th>message</th></tr>';
+  for(const a of r.applications.slice(0,200)){
+    h+=`<tr><td class="m">${(a.created_ts||'').slice(0,16).replace('T',' ')}</td><td>${esc(a.name)}</td><td>${esc(a.contact)}</td><td>${esc(a.message)}</td></tr>`;
+  }
+  document.getElementById('appTable').innerHTML=h;
+}
+load(); loadInvites(); loadApps(); setInterval(()=>{load();loadInvites();loadApps();}, 5000);
 </script></body></html>"""
