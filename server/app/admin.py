@@ -77,6 +77,7 @@ def gather_stats() -> dict[str, Any]:
             "topup_complete": all_done,
             **_s4_breakdown(s4_cells),
         },
+        "invites": db.invite_summary(),
         "recent": db.recent_events(30),
     }
 
@@ -146,6 +147,10 @@ th,td{text-align:left;padding:.35rem .6rem;border-bottom:1px solid var(--line)}
 @media(max-width:760px){.grid2{grid-template-columns:1fr}}
 small.m{color:var(--muted)}
 a.btn{display:inline-block;margin-right:.6rem;font-size:.85rem}
+.mono{font-family:ui-monospace,monospace}
+input.adm{padding:.35rem .5rem;border:1px solid var(--line);border-radius:6px;font-size:.9rem}
+.gen-row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin:.6rem 0}
+.tc{font-family:ui-monospace,monospace;background:#fef3c7;border:1px dashed var(--warn);border-radius:6px;padding:.1rem .5rem;font-weight:700}
 </style></head><body>
 <header><div><strong>Experiment monitor</strong> &nbsp;<span class="v" id="ver"></span></div>
 <div id="intake"></div></header>
@@ -170,6 +175,21 @@ a.btn{display:inline-block;margin-right:.6rem;font-size:.85rem}
     <p id="s4done"></p>
     <p><a class="btn" id="s4exp" href="#">⬇ export s4 (zip)</a></p>
   </div>
+</div>
+<div class="card"><h2>Invitation codes</h2>
+<p><small class="m">Participants must enter a valid code to start the study.</small><br>
+<strong>Test code:</strong> <span class="tc" id="testcode">…</span>
+<small class="m"> — runs the real study but stores nothing and shows an alert.</small></p>
+<div class="gen-row">Generate
+  <input class="adm" id="genCount" type="number" value="50" min="1" max="2000" style="width:5rem"> codes, each usable
+  <input class="adm" id="genUses" type="number" value="1" min="1" style="width:4rem"> time(s)
+  <input class="adm" id="genLabel" type="text" placeholder="label (optional)" style="width:9rem">
+  <button class="open-btn" onclick="genCodes()">Generate</button>
+  <a class="btn" id="dlCodes" href="#" style="display:none">&#11015; download new codes</a>
+</div>
+<p id="genResult" class="m" style="font-size:.85rem"></p>
+<p><small class="m">Single-use (1) codes lock out if a participant refreshes; set 2&ndash;3 uses to tolerate refreshes.</small></p>
+<table id="inviteTable"></table>
 </div>
 <div class="card"><h2>Recent events</h2><div class="feed" id="feed"></div></div>
 </main>
@@ -218,5 +238,26 @@ async function load(){
   let f=''; for(const e of s.recent){f+=`<div>${e.server_ts.slice(11,19)} · <b>${e.study}</b> · ${e.type} <span class="m">${e.page||''}</span> · ${e.token.slice(0,6)}…</div>`;}
   document.getElementById('feed').innerHTML=f;
 }
-load(); setInterval(load, 5000);
+async function genCodes(){
+  const count=document.getElementById('genCount').value||50;
+  const uses=document.getElementById('genUses').value||1;
+  const label=encodeURIComponent(document.getElementById('genLabel').value||'');
+  let r; try{ r=await (await fetch('/api/admin/invites/generate?key='+encodeURIComponent(KEY)+'&count='+count+'&max_uses='+uses+'&label='+label,{method:'POST',headers:hdr()})).json(); }catch(e){return;}
+  if(!r.ok){document.getElementById('genResult').textContent='Error generating codes.';return;}
+  document.getElementById('genResult').textContent='Generated '+r.count+' codes (each usable '+(r.max_uses==null?'unlimited':r.max_uses)+' time(s)). Download and distribute them.';
+  const blob=new Blob([r.codes.join('\\n')+'\\n'],{type:'text/plain'});
+  const a=document.getElementById('dlCodes'); a.href=URL.createObjectURL(blob); a.download='invite_codes.txt'; a.style.display='inline-block';
+  loadInvites();
+}
+async function loadInvites(){
+  let r; try{ r=await (await fetch('/api/admin/invites?key='+encodeURIComponent(KEY))).json(); }catch(e){return;}
+  if(!r.ok) return;
+  document.getElementById('testcode').textContent=r.test_code;
+  let h='<tr><th>code</th><th>used</th><th>max</th><th>type</th><th>created</th></tr>';
+  for(const v of r.invites.slice(0,300)){
+    h+=`<tr><td class="mono">${v.code}</td><td>${v.used_count}</td><td>${v.max_uses==null?'\\u221e':v.max_uses}</td><td>${v.is_test?'<b>TEST</b>':(v.active?'live':'off')}</td><td class="m">${(v.created_ts||'').slice(0,10)}</td></tr>`;
+  }
+  document.getElementById('inviteTable').innerHTML=h;
+}
+load(); loadInvites(); setInterval(()=>{load();loadInvites();}, 5000);
 </script></body></html>"""

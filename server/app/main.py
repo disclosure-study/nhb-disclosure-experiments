@@ -21,6 +21,7 @@ from __future__ import annotations
 import hashlib
 import io
 import secrets
+import time
 import zipfile
 from pathlib import Path
 from typing import Any, Optional
@@ -73,11 +74,38 @@ def _config_version(study: str) -> str:
     return digest
 
 
+# Lightweight per-IP throttle on FAILED invite attempts (brute-force / DoS guard).
+# Only failures count, so a legitimate participant (who succeeds first try) is
+# never affected. The real client IP comes from X-Forwarded-For (set by Caddy).
+_INVITE_FAILS: dict[str, list[float]] = {}
+_FAIL_WINDOW = 600.0
+_FAIL_MAX = 30
+
+
+def _client_ip(request: Request) -> str:
+    xff = request.headers.get("x-forwarded-for", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "?"
+
+
+def _invite_rate_limited(ip: str) -> bool:
+    now = time.time()
+    fails = [t for t in _INVITE_FAILS.get(ip, []) if now - t < _FAIL_WINDOW]
+    _INVITE_FAILS[ip] = fails
+    return len(fails) >= _FAIL_MAX
+
+
+def _record_invite_fail(ip: str) -> None:
+    _INVITE_FAILS.setdefault(ip, []).append(time.time())
+
+
 # --------------------------------------------------------------------------- #
 # Request models
 # --------------------------------------------------------------------------- #
 class StartReq(BaseModel):
     study: str
+    invite: str | None = None
     prolific: dict[str, Any] | None = None
     screen: dict[str, Any] | None = None
     user_agent: str | None = None
@@ -122,6 +150,7 @@ def health() -> dict[str, Any]:
         "ok": True,
         "platform_version": config.PLATFORM_VERSION,
         "intake_open": db.intake_open(),
+        "invite_required": config.INVITE_REQUIRED,
         "llm_provider": config.LLM_PROVIDER,
         "llm_model": config.LLM_MODEL if config.LLM_PROVIDER != "offline" else "offline-canned",
     }
@@ -134,7 +163,7 @@ _AUTO_TYPES_SET_USE = {"assistant_insert", "any_use_true"}
 
 
 @app.post("/api/session/start")
-def session_start(req: StartReq) -> dict[str, Any]:
+def session_start(req: StartReq, request: Request) -> dict[str, Any]:
     study = req.study.lower()
     if study not in ("s3", "s4"):
         return {"ok": False, "reason": "bad_study"}
@@ -146,8 +175,31 @@ def session_start(req: StartReq) -> dict[str, Any]:
     if pid_hash and db.pid_already_used(study, pid_hash):
         return {"ok": False, "reason": "already_participated"}
 
+    # Invitation-code gate (access control). Consumed only once we know we will
+    # open a session (i.e. after the duplicate-PID check above).
+    is_test = False
+    if config.INVITE_REQUIRED:
+        ip = _client_ip(request)
+        if _invite_rate_limited(ip):
+            return {"ok": False, "reason": "rate_limited"}
+        valid, is_test, reason = db.validate_and_consume_invite(req.invite or "")
+        if not valid:
+            _record_invite_fail(ip)
+            return {"ok": False, "reason": reason or "bad_invite"}
+
     a = randomizer.assign(study)
     token = secrets.token_urlsafe(16)
+
+    # TEST session: assign a condition + token and run the real flow, but persist
+    # NOTHING (no participant row, no session/event records — see events.record_*).
+    if is_test:
+        db.mark_test_token(token)
+        return {
+            "ok": True, "token": token, "study": study, "cond": a["cond"],
+            "batch_no": a["batch_no"], "test": True,
+            "platform_version": config.PLATFORM_VERSION,
+            "config_version": _config_version(study),
+        }
 
     import json as _json
     db.insert_participant({
@@ -183,6 +235,7 @@ def session_start(req: StartReq) -> dict[str, Any]:
         "study": study,
         "cond": a["cond"],
         "batch_no": a["batch_no"],
+        "test": False,
         "platform_version": config.PLATFORM_VERSION,
         "config_version": _config_version(study),
     }
@@ -199,6 +252,8 @@ def _apply_event_side_effects(ev: EventReq) -> None:
 
 @app.post("/api/event")
 def log_event(req: EventReq) -> dict[str, Any]:
+    if not db.is_known_token(req.token):     # reject fabricated tokens (no orphan rows)
+        return {"ok": False, "reason": "unknown_token"}
     res = events.record_event(
         req.study, req.token, req.type, page=req.page, payload=req.payload,
         client_ts=req.client_ts, seq=req.seq, client_event_id=req.client_event_id,
@@ -211,6 +266,8 @@ def log_event(req: EventReq) -> dict[str, Any]:
 def log_batch(req: BatchReq) -> dict[str, Any]:
     n = 0
     for ev in req.events:
+        if not db.is_known_token(ev.token):
+            continue
         events.record_event(
             ev.study, ev.token, ev.type, page=ev.page, payload=ev.payload,
             client_ts=ev.client_ts, seq=ev.seq, client_event_id=ev.client_event_id,
@@ -222,8 +279,8 @@ def log_batch(req: BatchReq) -> dict[str, Any]:
 
 @app.post("/api/s4/assistant")
 async def s4_assistant(req: AssistantReq) -> dict[str, Any]:
-    part = await run_in_threadpool(db.get_participant, req.token)
-    if part is None:
+    known = await run_in_threadpool(db.is_known_token, req.token)
+    if not known:                              # reject fabricated tokens
         return {"ok": False, "reason": "unknown_token"}
 
     used = await run_in_threadpool(db.count_assistant_requests, req.token)
@@ -283,6 +340,8 @@ async def s4_assistant(req: AssistantReq) -> dict[str, Any]:
 
 @app.post("/api/session/complete")
 def session_complete(req: CompleteReq) -> dict[str, Any]:
+    if not db.is_known_token(req.token):
+        return {"ok": False, "reason": "unknown_token"}
     code = config.COMPLETION_CODES.get(req.study, "COMPLETE")
     db.update_participant(
         req.token, status="completed", completed_ts=events._now_iso(), completion_code=code
@@ -339,6 +398,49 @@ def admin_export(request: Request) -> Response:
                    f"exported_at={events._now_iso()}\n")
     return Response(content=buf.getvalue(), media_type="application/zip",
                     headers={"Content-Disposition": f'attachment; filename="{study}_export.zip"'})
+
+
+_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no ambiguous chars (0/O/1/I/L)
+
+
+def _gen_code(n: int = 8) -> str:
+    return "".join(secrets.choice(_CODE_ALPHABET) for _ in range(n))
+
+
+@app.post("/api/admin/invites/generate")
+def admin_invites_generate(request: Request) -> JSONResponse:
+    if not _check_key(request):
+        return JSONResponse({"ok": False, "reason": "unauthorized"}, status_code=401)
+    try:
+        count = max(1, min(2000, int(request.query_params.get("count", "50"))))
+    except ValueError:
+        count = 50
+    mu = request.query_params.get("max_uses", "1").strip().lower()
+    if mu in ("", "0", "unlimited", "inf"):
+        max_uses: Optional[int] = None
+    elif mu.isdigit():
+        max_uses = max(1, int(mu))
+    else:
+        max_uses = 1
+    label = (request.query_params.get("label", "") or "")[:80]
+    codes = []
+    for _ in range(count):
+        c = _gen_code()
+        db.insert_invite(c, label, max_uses, is_test=0)
+        codes.append(c)
+    return JSONResponse({"ok": True, "codes": codes, "max_uses": max_uses, "count": len(codes)})
+
+
+@app.get("/api/admin/invites")
+def admin_invites_list(request: Request) -> JSONResponse:
+    if not _check_key(request):
+        return JSONResponse({"ok": False, "reason": "unauthorized"}, status_code=401)
+    return JSONResponse({
+        "ok": True,
+        "invite_required": config.INVITE_REQUIRED,
+        "test_code": config.INVITE_TEST_CODE,
+        "invites": db.list_invites(),
+    })
 
 
 # --------------------------------------------------------------------------- #

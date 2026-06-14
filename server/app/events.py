@@ -38,6 +38,8 @@ def _append_jsonl(study: str, name: str, record: dict[str, Any]) -> None:
 
 
 def record_session(study: str, token: str, record: dict[str, Any]) -> None:
+    if db.is_test_token(token):     # TEST session — persist nothing
+        return
     record = {
         "v": config.PLATFORM_VERSION,
         "study": study,
@@ -58,8 +60,11 @@ def record_event(
     seq: int | None = None,
     client_event_id: str | None = None,
 ) -> dict[str, Any]:
-    """Append to JSONL (write-ahead), then mirror into SQLite. Idempotent."""
+    """Append to JSONL (write-ahead), then mirror into SQLite. Idempotent.
+    TEST-session tokens are never persisted (the test invite code is no-store)."""
     server_ts = _now_iso()
+    if db.is_test_token(token):
+        return {"ok": True, "server_ts": server_ts, "duplicate": False, "stored": False, "test": True}
     payload = payload or {}
     record = {
         "v": config.PLATFORM_VERSION,

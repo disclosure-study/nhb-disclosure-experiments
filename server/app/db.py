@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from . import config
@@ -79,6 +80,16 @@ def init_db() -> None:
                 );
                 CREATE INDEX IF NOT EXISTS idx_events_token ON events(token);
                 CREATE INDEX IF NOT EXISTS idx_events_type  ON events(study, type);
+
+                CREATE TABLE IF NOT EXISTS invite_codes (
+                    code        TEXT PRIMARY KEY,
+                    label       TEXT,
+                    max_uses    INTEGER,                 -- NULL = unlimited
+                    used_count  INTEGER DEFAULT 0,
+                    is_test     INTEGER DEFAULT 0,
+                    active      INTEGER DEFAULT 1,
+                    created_ts  TEXT
+                );
                 """
             )
             conn.commit()
@@ -87,6 +98,7 @@ def init_db() -> None:
     # Default settings
     if get_setting("intake_open") is None:
         set_setting("intake_open", "1")
+    _seed_test_invite()
     _INIT_DONE = True
 
 
@@ -121,6 +133,123 @@ def intake_open() -> bool:
 
 
 # --------------------------------------------------------------------------- #
+# Invitation codes (access control) + test-session token registry
+# --------------------------------------------------------------------------- #
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+# Tokens belonging to TEST sessions. Server-authoritative (set at session start
+# from the test invite code) and consulted by events.record_event so a test run
+# never persists anything. In-memory only — a server restart mid-test session is
+# rare and at worst leaves a few orphan test events (benign), never lost real data.
+_TEST_TOKENS: set[str] = set()
+
+
+def mark_test_token(token: str) -> None:
+    _TEST_TOKENS.add(token)
+
+
+def is_test_token(token: str) -> bool:
+    return token in _TEST_TOKENS
+
+
+# Tokens known to belong to a real session (created via /api/session/start) or a
+# test session. Event/complete endpoints reject anything else, so a fabricated
+# token cannot inject orphan rows into the canonical JSONL or the audit counts.
+_KNOWN_TOKENS: set[str] = set()
+
+
+def is_known_token(token: str) -> bool:
+    if token in _KNOWN_TOKENS or token in _TEST_TOKENS:
+        return True
+    if get_participant(token) is not None:   # DB fallback (survives restart), then cache
+        _KNOWN_TOKENS.add(token)
+        return True
+    return False
+
+
+def _seed_test_invite() -> None:
+    code = (config.INVITE_TEST_CODE or "").strip()
+    if not code:
+        return
+    with _WRITE_LOCK:
+        conn = get_conn()
+        try:
+            conn.execute(
+                "INSERT INTO invite_codes(code,label,max_uses,used_count,is_test,active,created_ts) "
+                "VALUES(?,?,NULL,0,1,1,?) "
+                "ON CONFLICT(code) DO UPDATE SET is_test=1, active=1, label=excluded.label",
+                (code, "TEST CODE - runs the real study but stores no data", _now()),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+
+def insert_invite(code: str, label: str, max_uses: Optional[int], is_test: int = 0) -> None:
+    with _WRITE_LOCK:
+        conn = get_conn()
+        try:
+            conn.execute(
+                "INSERT OR IGNORE INTO invite_codes(code,label,max_uses,used_count,is_test,active,created_ts) "
+                "VALUES(?,?,?,0,?,1,?)",
+                (code, label, max_uses, is_test, _now()),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+
+def validate_and_consume_invite(code: str) -> tuple[bool, bool, Optional[str]]:
+    """Return (valid, is_test, reason). For a valid non-test limited-use code this
+    atomically increments used_count. Test codes are validated but never consumed."""
+    code = (code or "").strip()
+    if not code:
+        return (False, False, "invite_required")
+    with _WRITE_LOCK:
+        conn = get_conn()
+        try:
+            row = conn.execute("SELECT * FROM invite_codes WHERE code=?", (code,)).fetchone()
+            if row is None:
+                return (False, False, "bad_invite")
+            if not row["active"]:
+                return (False, False, "inactive")
+            if row["is_test"]:
+                return (True, True, None)
+            if row["max_uses"] is not None and row["used_count"] >= row["max_uses"]:
+                return (False, False, "invite_used")
+            conn.execute("UPDATE invite_codes SET used_count=used_count+1 WHERE code=?", (code,))
+            conn.commit()
+            return (True, False, None)
+        finally:
+            conn.close()
+
+
+def list_invites(limit: int = 1000) -> list[dict[str, Any]]:
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT code,label,max_uses,used_count,is_test,active,created_ts FROM invite_codes "
+            "ORDER BY is_test DESC, created_ts DESC LIMIT ?", (limit,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def invite_summary() -> dict[str, int]:
+    conn = get_conn()
+    try:
+        total = conn.execute("SELECT COUNT(*) n FROM invite_codes WHERE is_test=0").fetchone()["n"]
+        used = conn.execute(
+            "SELECT COUNT(*) n FROM invite_codes WHERE is_test=0 AND used_count>0").fetchone()["n"]
+        return {"total": int(total), "used": int(used)}
+    finally:
+        conn.close()
+
+
+# --------------------------------------------------------------------------- #
 # Participants
 # --------------------------------------------------------------------------- #
 def insert_participant(row: dict[str, Any]) -> None:
@@ -138,6 +267,7 @@ def insert_participant(row: dict[str, Any]) -> None:
             conn.commit()
         finally:
             conn.close()
+    _KNOWN_TOKENS.add(row["token"])
 
 
 def update_participant(token: str, **fields: Any) -> None:

@@ -266,9 +266,62 @@ NHB.runner = (function () {
     cfg = config;
     pages = config.pages || [];
     await NHB.api.init();
-    const res = await NHB.logger.startSession(config.study, { assignFn: buildAssignFn() });
     mountChrome();
+    // Server mode: gate on an invitation code (unless the server disables it).
+    // Preview mode: no gate (no data is collected anyway).
+    const health = NHB.api.getHealth() || {};
+    const needInvite = NHB.api.getMode() === 'server' && health.invite_required !== false;
+    if (needInvite) renderInviteGate(null);
+    else beginSession(null);
+  }
+
+  function gateError(reason) {
+    return ({
+      bad_invite: 'Invalid invitation code. 邀请码无效。',
+      invite_used: 'This code has already been used. 此邀请码已被使用。',
+      invite_required: 'Please enter your invitation code. 请输入您的邀请码。',
+      inactive: 'This code is no longer active. 此邀请码已停用。',
+    })[reason] || 'Invalid invitation code. 邀请码无效。';
+  }
+
+  function renderInviteGate(errReason) {
+    appEl.innerHTML = '';
+    const card = el('div', 'card gate');
+    card.innerHTML =
+      `<h1 class="page-title">${cfg.brand || cfg.title || 'Study'}</h1>` +
+      (cfg.summary_en ? `<p>${cfg.summary_en}</p>` : '') +
+      (cfg.summary_zh ? `<p class="muted" lang="zh">${cfg.summary_zh}</p>` : '') +
+      `<div class="notice info">All content is in <strong>English</strong> — please continue only if you ` +
+      `read and write English comfortably.<br><span lang="zh">本研究全部内容为<strong>英文</strong>，` +
+      `请仅在您能顺畅读写英文的情况下继续。</span></div>` +
+      `<label class="gate-label" for="inviteInput">Invitation code · 邀请码</label>` +
+      `<input id="inviteInput" type="text" autocomplete="off" spellcheck="false" placeholder="Enter your code · 输入邀请码">` +
+      (errReason ? `<div class="err">${gateError(errReason)}</div>` : '');
+    const row = navRow(() => {
+      const code = card.querySelector('#inviteInput').value.trim();
+      if (!code) { renderInviteGate('invite_required'); return; }
+      row._btn.disabled = true;
+      beginSession(code);
+    }, { label: 'Begin · 开始' });
+    card.appendChild(row);
+    appEl.appendChild(card);
+    const inp = card.querySelector('#inviteInput');
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') row._btn.click(); });
+    inp.focus();
+  }
+
+  function showTestBanner() {
+    const f = document.querySelector('.modeflag');
+    if (f) { f.className = 'modeflag test'; f.textContent = '● TEST — not saved · 测试'; }
+  }
+
+  async function beginSession(invite) {
+    const res = await NHB.logger.startSession(cfg.study, { assignFn: buildAssignFn(), invite });
     if (!res.ok) {
+      if (['bad_invite', 'invite_used', 'invite_required', 'inactive'].includes(res.reason)) {
+        renderInviteGate(res.reason);
+        return;
+      }
       appEl.innerHTML = `<div class="card"><h1 class="page-title">Study unavailable</h1><p>${
         res.reason === 'already_participated'
           ? 'Our records show you have already taken part in this study.'
@@ -276,10 +329,15 @@ NHB.runner = (function () {
       }</p></div>`;
       return;
     }
+    if (res.test) {
+      alert('TEST MODE — this is a test run. Your responses will NOT be saved.\n\n' +
+        '测试模式 — 这是测试运行，您的回答不会被保存。');
+      showTestBanner();
+    }
     cond = NHB.logger.getCond();
     await loadStimuli();
-    NHB.logger.mountInspector();
-    log('study_loaded', { cond, mode: NHB.logger.getMode(),
+    NHB.logger.mountInspector(!!res.test);
+    log('study_loaded', { cond, mode: NHB.logger.getMode(), test: !!res.test,
       platform_version: NHB.platform_version });
     renderCurrent();
   }

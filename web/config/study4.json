@@ -2,6 +2,8 @@
   "study": "s4",
   "title": "Creative Writing & Online Galleries",
   "brand": "WriteGallery — community writing studio",
+  "summary_en": "A study about creative writing and online galleries. You'll browse a small gallery and write a short opening scene, then answer a few questions. About 35 minutes.",
+  "summary_zh": "一项关于创意写作与在线展廊的研究。您将浏览一个小型展廊并撰写一个简短的开头场景，然后回答几个问题。约 35 分钟。",
   "conditions": { "regime": ["R_CTRL", "R_STIGMA", "R_BENEFIT"], "prompt": ["prompt_a", "prompt_b"] },
   "stimuli": { "gallery": "../config/stimuli/gallery_seed.json" },
   "regime_scripts": {

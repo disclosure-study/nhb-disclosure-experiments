@@ -2,6 +2,8 @@
   "study": "s3",
   "title": "Reading & Reactions to Online Fiction",
   "brand": "Fiction Archive Reading Study",
+  "summary_en": "A study about how people read and react to short online fiction. You'll read one short story and share your impressions. About 13–15 minutes.",
+  "summary_zh": "一项关于人们如何阅读并回应网络短篇小说的研究。您将阅读一篇短篇小说并分享您的感受。约 13–15 分钟。",
   "conditions": { "arm": ["L0_control", "L1_disclosed"], "story": ["story_a", "story_b", "story_c"] },
   "stimuli": { "stories": "../config/stimuli/stories.json" },
   "pages": [

@@ -107,6 +107,12 @@ input[type=range]{flex:1;accent-color:var(--accent);height:6px}
 .notice.warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412}
 .notice.info{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af}
 
+/* invitation gate + test banner */
+.gate-label{display:block;font-weight:600;margin-top:1.1rem;font-size:.95rem}
+.gate input#inviteInput{margin-top:.5rem;max-width:360px;font-size:1.05rem;letter-spacing:.05em}
+.modeflag.test{background:#fef3c7;color:#92400e;border-color:#fde68a;font-weight:700}
+[lang=zh]{line-height:1.7}
+
 /* event inspector (preview / debug) */
 #inspector{position:fixed;bottom:0;left:0;right:0;z-index:50;font-family:ui-monospace,monospace}
 #inspector .tab{position:absolute;right:1rem;top:-30px;background:#14213d;color:#fff;border:0;border-radius:8px 8px 0 0;padding:.35rem .8rem;font-size:.78rem;cursor:pointer}

@@ -10,7 +10,7 @@
  */
 window.NHB = window.NHB || {};
 NHB.logger = (function () {
-  let study = null, token = null, cond = null, mode = 'preview';
+  let study = null, token = null, cond = null, mode = 'preview', isTest = false;
   let seq = 0;
   const localEvents = [];
   const retry = [];
@@ -35,12 +35,13 @@ NHB.logger = (function () {
     if (mode === 'server') {
       const res = await NHB.api.post('/api/session/start', {
         study: studyId,
+        invite: opts.invite || null,
         prolific: NHB.prolific.all(),
         screen: { w: innerWidth, h: innerHeight, dpr: devicePixelRatio },
         user_agent: navigator.userAgent,
       });
-      if (!res.ok) return res;          // intake_closed / already_participated
-      token = res.token; cond = res.cond;
+      if (!res.ok) return res;          // intake_closed / bad_invite / already_participated
+      token = res.token; cond = res.cond; isTest = !!res.test;
       NHB.platform_version = res.platform_version;
       NHB.config_version = res.config_version;
       return res;
@@ -144,6 +145,7 @@ NHB.logger = (function () {
   return {
     startSession, event, complete, mountInspector,
     getToken: () => token, getCond: () => cond, getMode: () => mode,
+    getIsTest: () => isTest,
     getLocalEvents: () => localEvents,
   };
 })();

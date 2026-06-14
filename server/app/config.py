@@ -104,6 +104,17 @@ COMPLETION_CODES = {
 
 
 # --------------------------------------------------------------------------- #
+# Access control — invitation codes
+# --------------------------------------------------------------------------- #
+# When INVITE_REQUIRED, a participant must enter a valid invite code (server mode)
+# before the study begins. Codes are generated/managed in the admin dashboard.
+# One always-present TEST code runs the real study but stores NOTHING and shows an
+# alert; it is displayed in the admin dashboard.
+INVITE_REQUIRED = _env("INVITE_REQUIRED", "1").lower() not in ("0", "false", "no", "off")
+INVITE_TEST_CODE = _env("INVITE_TEST_CODE", "TEST-RUN")
+
+
+# --------------------------------------------------------------------------- #
 # LLM assistant proxy (Study 4) — pinned + fully logged (provenance discipline)
 # --------------------------------------------------------------------------- #
 # Provider: "anthropic" | "openai" | "offline".
