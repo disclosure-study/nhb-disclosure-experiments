@@ -86,6 +86,11 @@ docker run -p 8000:8000 -v $PWD/data:/app/data \
   -e PID_SALT=... -e ADMIN_TOKEN=... -e ANTHROPIC_API_KEY=sk-... nhb-platform
 ```
 
+> ⚠️ **Testing only — never for real data collection.** This bypasses Caddy, so
+> there is no TLS and no edge request-body cap. The app keeps an in-process 4 MB
+> body limit and per-IP upload throttle, but you lose HTTPS and the edge defence.
+> Always run the Compose topology (app `expose`d behind Caddy) for live studies.
+
 ---
 
 ## 4. Data storage & residency

@@ -80,6 +80,7 @@ def gather_stats() -> dict[str, Any]:
         "invites": db.invite_summary(),
         "experiment_status": db.experiment_status(),
         "applications": db.application_count(),
+        "payments": db.payment_count(),
         "recent": db.recent_events(30),
     }
 
@@ -112,20 +113,39 @@ def participants_csv(study: str) -> str:
 # HTML
 # --------------------------------------------------------------------------- #
 def render_login() -> str:
+    # The key is sent in a POST header (never a URL), exchanged for an HttpOnly
+    # cookie, so it never lands in browser history, access logs, or Referer.
     return """<!doctype html><html><head><meta charset="utf-8">
+<meta name="referrer" content="no-referrer">
 <title>Admin — login</title>
 <style>body{font-family:system-ui,sans-serif;max-width:480px;margin:8vh auto;padding:0 1rem}
 input{padding:.5rem;width:100%;font-size:1rem;box-sizing:border-box}
-button{padding:.5rem 1rem;margin-top:.75rem;font-size:1rem;cursor:pointer}</style></head>
+button{padding:.5rem 1rem;margin-top:.75rem;font-size:1rem;cursor:pointer}
+#err{color:#b91c1c;font-size:.9rem;min-height:1.2rem}</style></head>
 <body><h2>Admin dashboard</h2><p>Enter the admin key.</p>
-<input id="k" type="password" placeholder="admin key" autofocus>
-<button onclick="location.href='/admin?key='+encodeURIComponent(document.getElementById('k').value)">Open dashboard</button>
+<input id="k" type="password" placeholder="admin key" autofocus
+  onkeydown="if(event.key==='Enter')go()">
+<button onclick="go()">Open dashboard</button>
+<p id="err"></p>
+<script>
+async function go(){
+  const k=document.getElementById('k').value;
+  const e=document.getElementById('err'); e.textContent='';
+  let ok=false;
+  try{ ok=(await fetch('/api/admin/login',{method:'POST',headers:{'x-admin-key':k}})).ok; }catch(_){}
+  if(ok){ location.href='/admin'; } else { e.textContent='Incorrect key.'; }
+}
+// If the page was opened via a legacy /admin?key=... bookmark, the server already
+// set the cookie; strip the key from the address bar / history just in case.
+if(location.search){ history.replaceState({}, '', '/admin'); }
+</script>
 </body></html>"""
 
 
 def render_dashboard(_stats: dict[str, Any] | None = None, key: str = "") -> str:
     # The shell polls /api/admin/stats live; key is read from the current URL.
     return """<!doctype html><html><head><meta charset="utf-8">
+<meta name="referrer" content="no-referrer">
 <title>Experiment monitor</title>
 <style>
 :root{--ink:#14213d;--muted:#6b7280;--ok:#157f3b;--warn:#b45309;--line:#e5e7eb}
@@ -155,7 +175,7 @@ input.adm{padding:.35rem .5rem;border:1px solid var(--line);border-radius:6px;fo
 .tc{font-family:ui-monospace,monospace;background:#fef3c7;border:1px dashed var(--warn);border-radius:6px;padding:.1rem .5rem;font-weight:700}
 </style></head><body>
 <header><div><strong>Experiment monitor</strong> &nbsp;<span class="v" id="ver"></span></div>
-<div id="intake"></div></header>
+<div id="intake"><a href="#" onclick="logout();return false" style="color:#cbd5e1;font-size:.82rem">log out</a></div></header>
 <main>
 <div class="card"><h2>Experiment status</h2>
 <p>Status: <span id="expStatus"></span></p>
@@ -203,13 +223,19 @@ input.adm{padding:.35rem .5rem;border:1px solid var(--line);border-radius:6px;fo
 <p><small class="m">Messages left by people on the "experiment finished" page.</small></p>
 <table id="appTable"></table>
 </div>
+<div class="card"><h2>Payment details <span id="payCount" class="m"></span></h2>
+<p><small class="m">Receiving methods participants gave at the end (for direct payment). Sensitive &mdash; delete after paying.</small></p>
+<table id="payTable"></table>
+</div>
 <div class="card"><h2>Recent events</h2><div class="feed" id="feed"></div></div>
 </main>
 <script>
-const KEY = new URLSearchParams(location.search).get('key') || '';
-function hdr(){return {'x-admin-key':KEY};}
+// Auth rides an HttpOnly cookie (set on login), so no admin key ever appears in
+// a URL. Scrub a legacy ?key=... bookmark from the address bar / history.
+if(location.search){ history.replaceState({}, '', '/admin'); }
+async function logout(){ try{ await fetch('/api/admin/logout',{method:'POST'}); }catch(_){} location.href='/admin'; }
 async function setIntake(open){
-  await fetch('/api/admin/intake?open='+open,{method:'POST',headers:hdr()});
+  await fetch('/api/admin/intake?open='+open,{method:'POST'});
   load();
 }
 function bar(have,need){
@@ -219,7 +245,7 @@ function bar(have,need){
     <small class="m">${have} / ${need} ${done?'✓':''}</small>`;
 }
 async function load(){
-  let s; try{ s=await (await fetch('/api/admin/stats?key='+encodeURIComponent(KEY))).json(); }catch(e){return;}
+  let s; try{ s=await (await fetch('/api/admin/stats')).json(); }catch(e){return;}
   if(!s.ok) return;
   document.getElementById('ver').textContent = s.platform_version+' · LLM:'+s.llm_provider;
   const ip=document.getElementById('intakePill');
@@ -229,6 +255,7 @@ async function load(){
   if(es){const closed=s.experiment_status==='closed';
     es.innerHTML=closed?'<span class="pill closed">FINISHED — demonstration only</span>':'<span class="pill open">COLLECTING DATA</span>';}
   const ac=document.getElementById('appCount'); if(ac) ac.textContent=s.applications?'('+s.applications+')':'';
+  const pc=document.getElementById('payCount'); if(pc) pc.textContent=s.payments?'('+s.payments+')':'';
   // S3
   document.getElementById('s3tot').textContent=s.s3.total;
   document.getElementById('s3comp').textContent=s.s3.completed;
@@ -248,8 +275,8 @@ async function load(){
   document.getElementById('s4done').innerHTML = s.s4.topup_complete
     ? '<span class="pill open">All regimes at target — stopping rule met</span>'
     : '<small class="m">recruiting in batches of '+'150'+'…</small>';
-  document.getElementById('s3exp').href='/api/admin/export?study=s3&key='+encodeURIComponent(KEY);
-  document.getElementById('s4exp').href='/api/admin/export?study=s4&key='+encodeURIComponent(KEY);
+  document.getElementById('s3exp').href='/api/admin/export?study=s3';
+  document.getElementById('s4exp').href='/api/admin/export?study=s4';
   // feed
   let f=''; for(const e of s.recent){f+=`<div>${e.server_ts.slice(11,19)} · <b>${e.study}</b> · ${e.type} <span class="m">${e.page||''}</span> · ${e.token.slice(0,6)}…</div>`;}
   document.getElementById('feed').innerHTML=f;
@@ -258,7 +285,7 @@ async function genCodes(){
   const count=document.getElementById('genCount').value||50;
   const uses=document.getElementById('genUses').value||1;
   const label=encodeURIComponent(document.getElementById('genLabel').value||'');
-  let r; try{ r=await (await fetch('/api/admin/invites/generate?key='+encodeURIComponent(KEY)+'&count='+count+'&max_uses='+uses+'&label='+label,{method:'POST',headers:hdr()})).json(); }catch(e){return;}
+  let r; try{ r=await (await fetch('/api/admin/invites/generate?count='+count+'&max_uses='+uses+'&label='+label,{method:'POST'})).json(); }catch(e){return;}
   if(!r.ok){document.getElementById('genResult').textContent='Error generating codes.';return;}
   document.getElementById('genResult').textContent='Generated '+r.count+' codes (each usable '+(r.max_uses==null?'unlimited':r.max_uses)+' time(s)). Download and distribute them.';
   const blob=new Blob([r.codes.join('\\n')+'\\n'],{type:'text/plain'});
@@ -266,7 +293,7 @@ async function genCodes(){
   loadInvites();
 }
 async function loadInvites(){
-  let r; try{ r=await (await fetch('/api/admin/invites?key='+encodeURIComponent(KEY))).json(); }catch(e){return;}
+  let r; try{ r=await (await fetch('/api/admin/invites')).json(); }catch(e){return;}
   if(!r.ok) return;
   document.getElementById('testcode').textContent=r.test_code;
   let h='<tr><th>code</th><th>used</th><th>max</th><th>type</th><th>created</th></tr>';
@@ -278,11 +305,11 @@ async function loadInvites(){
 function esc(s){return (s||'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));}
 async function setExp(status){
   if(status==='closed' && !confirm('Finish the experiment? Real participants will see a data-collection-complete page (and can leave a message). The test code still works for demos.')) return;
-  await fetch('/api/admin/experiment?status='+status,{method:'POST',headers:hdr()});
+  await fetch('/api/admin/experiment?status='+status,{method:'POST'});
   load(); loadApps();
 }
 async function loadApps(){
-  let r; try{ r=await (await fetch('/api/admin/applications?key='+encodeURIComponent(KEY))).json(); }catch(e){return;}
+  let r; try{ r=await (await fetch('/api/admin/applications')).json(); }catch(e){return;}
   if(!r.ok) return;
   let h='<tr><th>when</th><th>name</th><th>contact</th><th>message</th></tr>';
   for(const a of r.applications.slice(0,200)){
@@ -290,5 +317,16 @@ async function loadApps(){
   }
   document.getElementById('appTable').innerHTML=h;
 }
-load(); loadInvites(); loadApps(); setInterval(()=>{load();loadInvites();loadApps();}, 5000);
+async function loadPays(){
+  let r; try{ r=await (await fetch('/api/admin/payments')).json(); }catch(e){return;}
+  if(!r.ok) return;
+  let h='<tr><th>when</th><th>method</th><th>account</th><th>name</th><th>note</th><th>QR</th></tr>';
+  for(const p of r.payments.slice(0,200)){
+    const u='/api/admin/payment-qr?id='+p.id;
+    const qr=p.qr_file?`<a href="${u}" target="_blank"><img src="${u}" style="height:46px;border-radius:4px"></a>`:'';
+    h+=`<tr><td class="m">${(p.created_ts||'').slice(0,16).replace('T',' ')}</td><td>${esc(p.method)}</td><td class="mono">${esc(p.account)}</td><td>${esc(p.name)}</td><td>${esc(p.note)}</td><td>${qr}</td></tr>`;
+  }
+  document.getElementById('payTable').innerHTML=h;
+}
+load(); loadInvites(); loadApps(); loadPays(); setInterval(()=>{load();loadInvites();loadApps();loadPays();}, 5000);
 </script></body></html>"""

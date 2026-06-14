@@ -99,6 +99,19 @@ def init_db() -> None:
                     created_ts  TEXT,
                     meta        TEXT
                 );
+
+                CREATE TABLE IF NOT EXISTS payments (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    token       TEXT,
+                    study       TEXT,
+                    method      TEXT,
+                    account     TEXT,
+                    name        TEXT,
+                    note        TEXT,
+                    qr_file     TEXT,
+                    qr_type     TEXT,
+                    created_ts  TEXT
+                );
                 """
             )
             conn.commit()
@@ -309,6 +322,62 @@ def application_count() -> int:
     conn = get_conn()
     try:
         return int(conn.execute("SELECT COUNT(*) n FROM applications").fetchone()["n"])
+    finally:
+        conn.close()
+
+
+# --------------------------------------------------------------------------- #
+# Payment details (participant-provided receiving method; sensitive)
+# --------------------------------------------------------------------------- #
+def upsert_payment(token: str, study: str, method: str, account: str, name: str,
+                   note: str, qr_file: str, qr_type: str) -> Optional[str]:
+    """At most ONE payment row per participant token. A re-submission overwrites
+    the previous one, so a (reusable) token cannot flood the table or the disk.
+    Returns the previous qr_file (if any, and now orphaned) so the caller can
+    delete the stale image."""
+    with _WRITE_LOCK:
+        conn = get_conn()
+        try:
+            prev = conn.execute(
+                "SELECT qr_file FROM payments WHERE token=? ORDER BY id DESC LIMIT 1",
+                (token,),
+            ).fetchone()
+            old_qr = prev["qr_file"] if prev else None
+            conn.execute("DELETE FROM payments WHERE token=?", (token,))
+            conn.execute(
+                "INSERT INTO payments(token,study,method,account,name,note,qr_file,qr_type,created_ts) "
+                "VALUES(?,?,?,?,?,?,?,?,?)",
+                (token, study, method, account, name, note, qr_file, qr_type, _now()),
+            )
+            conn.commit()
+            return old_qr if (old_qr and old_qr != qr_file) else None
+        finally:
+            conn.close()
+
+
+def list_payments(limit: int = 1000) -> list[dict[str, Any]]:
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT id,token,study,method,account,name,note,qr_file,qr_type,created_ts "
+            "FROM payments ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_payment(pid: int) -> Optional[sqlite3.Row]:
+    conn = get_conn()
+    try:
+        return conn.execute("SELECT * FROM payments WHERE id=?", (pid,)).fetchone()
+    finally:
+        conn.close()
+
+
+def payment_count() -> int:
+    conn = get_conn()
+    try:
+        return int(conn.execute("SELECT COUNT(*) n FROM payments").fetchone()["n"])
     finally:
         conn.close()
 

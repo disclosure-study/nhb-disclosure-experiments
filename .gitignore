@@ -15,6 +15,9 @@ venv/
 .pytest_cache/
 .mypy_cache/
 
+# Local ad-hoc probes (not part of the test suite)
+server/_test_*.py
+
 # Secrets
 .env
 

@@ -215,15 +215,72 @@ NHB.runner = (function () {
     clearTimers();
     const res = await NHB.logger.complete({ pages_seen: idx + 1 });
     const code = (res && res.completion_code) || cfg.completion_code || null;
+    const realServer = NHB.logger.getMode() === 'server' && !NHB.logger.getIsTest();
     document.querySelector('.wrap').innerHTML =
       '<div class="center"><div class="check-circle">✓</div><div class="big">All done — thank you!</div>' +
       (code ? '<p>Your completion code — please enter it on the recruitment platform to confirm your participation:</p>' +
         `<div class="code">${code}</div>` : '') +
+      (realServer ? paymentFormHtml() : '') +
       (NHB.logger.getMode() === 'preview' ?
         '<p class="muted" style="margin-top:1.4rem">This was a PREVIEW. No data left your browser. ' +
         'Open the event log (bottom-right) to inspect everything that was recorded, or download it as JSON.</p>' : '') +
       '</div>';
+    if (realServer) wirePaymentForm();
     if (progEl) progEl.style.width = '100%';
+  }
+
+  function paymentFormHtml() {
+    return '<div class="subform" style="text-align:left;max-width:460px;margin:1.6rem auto 0">' +
+      '<h2>Receiving your payment · 收款方式</h2>' +
+      '<p class="muted" style="font-size:.85rem">If the research team is paying you directly (not through a ' +
+      'recruitment platform), please tell us how to send it. Stored securely and used only to pay you. ' +
+      '<span lang="zh">如果由研究团队直接向您付款（非通过招募平台），请提供收款方式。信息将被安全保存，仅用于向您付款。</span></p>' +
+      '<select id="payMethod"><option value="alipay">Alipay 支付宝</option>' +
+      '<option value="wechat">WeChat 微信</option><option value="bank">Bank 银行</option>' +
+      '<option value="other">Other 其他</option></select>' +
+      '<input id="payAccount" type="text" placeholder="Account / ID · 账号（如支付宝账号、手机号）">' +
+      '<input id="payName" type="text" placeholder="Account holder name · 收款人姓名">' +
+      '<p class="muted" style="font-size:.85rem;margin:.7rem 0 .1rem">Or upload your payment QR code · 或上传收款二维码：</p>' +
+      '<input id="payQr" type="file" accept="image/png,image/jpeg,image/gif,image/webp">' +
+      '<textarea id="payNote" placeholder="Note (optional) · 备注（选填）"></textarea>' +
+      '<div id="payActions"></div><div class="dwell-note" id="payResult"></div></div>';
+  }
+
+  function wirePaymentForm() {
+    const wrap = document.querySelector('.wrap');
+    const btn = el('button', 'btn', 'Submit payment details · 提交收款信息');
+    wrap.querySelector('#payActions').appendChild(btn);
+    btn.addEventListener('click', async () => {
+      const out = wrap.querySelector('#payResult');
+      const account = wrap.querySelector('#payAccount').value.trim();
+      const note = wrap.querySelector('#payNote').value.trim();
+      const file = wrap.querySelector('#payQr').files[0];
+      if (!account && !note && !file) {
+        out.textContent = 'Please give an account, a note, or a QR image. 请填写账号、备注或上传二维码。'; return;
+      }
+      if (file && file.size > 3 * 1024 * 1024) {
+        out.textContent = 'Image too large (max 3 MB). 图片过大（上限 3MB）。'; return;
+      }
+      btn.disabled = true;
+      const fd = new FormData();
+      fd.append('token', NHB.logger.getToken()); fd.append('study', cfg.study);
+      fd.append('method', wrap.querySelector('#payMethod').value);
+      fd.append('account', account); fd.append('name', wrap.querySelector('#payName').value.trim());
+      fd.append('note', note);
+      if (file) fd.append('qr', file);
+      let r = null;
+      try { r = await (await fetch((NHB.api.apiBase || '') + '/api/payment', { method: 'POST', body: fd })).json(); }
+      catch (e) { /* network */ }
+      if (r && r.ok) {
+        out.textContent = 'Thank you — your payment details have been received. 已收到您的收款信息，谢谢。';
+        btn.textContent = 'Submitted ✓ · 已提交';
+      } else {
+        out.textContent = (r && r.reason === 'too_large') ? 'Image too large. 图片过大。'
+          : (r && r.reason === 'bad_image_type') ? 'Please upload an image (PNG / JPG). 请上传图片（PNG/JPG）。'
+          : 'Sorry, please try again. 抱歉，请重试。';
+        btn.disabled = false;
+      }
+    });
   }
 
   /* ---------- navigation ---------- */

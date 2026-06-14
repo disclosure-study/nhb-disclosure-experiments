@@ -20,13 +20,14 @@ from __future__ import annotations
 
 import hashlib
 import io
+import re
 import secrets
 import time
 import zipfile
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, File, Form, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -42,6 +43,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Hard ceiling on any request body, enforced BEFORE FastAPI parses the form (so an
+# oversized multipart upload is rejected before it is ever spooled to a temp file).
+# Caddy also caps bodies at the edge; this keeps the app safe even if run without it.
+_MAX_BODY_BYTES = 4 * 1024 * 1024
+
+
+@app.middleware("http")
+async def _limit_body_size(request: Request, call_next):
+    if request.method in ("POST", "PUT", "PATCH"):
+        cl = request.headers.get("content-length", "")
+        if cl.isdigit() and int(cl) > _MAX_BODY_BYTES:
+            return JSONResponse({"ok": False, "reason": "too_large"}, status_code=413)
+    return await call_next(request)
 
 
 @app.on_event("startup")
@@ -113,6 +129,20 @@ def _apply_rate_limited(ip: str) -> bool:
     hits = [t for t in _APPLY_HITS.get(ip, []) if now - t < _APPLY_WINDOW]
     _APPLY_HITS[ip] = hits
     return len(hits) >= _APPLY_MAX
+
+
+# Throttle the payment-details endpoint per IP (it accepts file uploads, so it is
+# a more expensive surface than a plain form post).
+_PAYMENT_HITS: dict[str, list[float]] = {}
+_PAYMENT_WINDOW = 600.0
+_PAYMENT_MAX = 6
+
+
+def _payment_rate_limited(ip: str) -> bool:
+    now = time.time()
+    hits = [t for t in _PAYMENT_HITS.get(ip, []) if now - t < _PAYMENT_WINDOW]
+    _PAYMENT_HITS[ip] = hits
+    return len(hits) >= _PAYMENT_MAX
 
 
 # --------------------------------------------------------------------------- #
@@ -403,18 +433,148 @@ def apply(req: ApplyReq, request: Request) -> dict[str, Any]:
 
 
 # --------------------------------------------------------------------------- #
+# Payment details (participant-provided receiving method incl. a QR-code image)
+# --------------------------------------------------------------------------- #
+PAYMENTS_DIR = config.DATA_DIR / "payments"
+_IMG_EXT = {"image/png": ".png", "image/jpeg": ".jpg", "image/jpg": ".jpg",
+            "image/gif": ".gif", "image/webp": ".webp"}
+_PAYMENT_MAX_BYTES = 3 * 1024 * 1024
+_SAFE_QR_NAME = re.compile(r"^[a-f0-9]{16}\.(png|jpg|gif|webp)$")
+
+
+@app.post("/api/payment")
+async def payment(
+    request: Request,
+    token: str = Form(...),
+    study: str = Form(""),
+    method: str = Form(""),
+    account: str = Form(""),
+    name: str = Form(""),
+    note: str = Form(""),
+    qr: UploadFile | None = File(None),
+) -> dict[str, Any]:
+    if not await run_in_threadpool(db.is_known_token, token):
+        return {"ok": False, "reason": "unknown_token"}
+    if await run_in_threadpool(db.is_test_token, token):
+        return {"ok": True, "test": True}          # demo session: store nothing
+    if _payment_rate_limited(_client_ip(request)):
+        return {"ok": False, "reason": "rate_limited"}
+
+    method = (method or "")[:40]
+    account = (account or "").strip()[:200]
+    name = (name or "").strip()[:120]
+    note = (note or "").strip()[:500]
+
+    qr_file = ""
+    qr_type = ""
+    if qr is not None and qr.filename:
+        ct = (qr.content_type or "").lower()
+        ext = _IMG_EXT.get(ct)
+        if not ext:
+            return {"ok": False, "reason": "bad_image_type"}
+        # Read in bounded chunks and abort the moment we cross the cap, so we never
+        # build a >3 MB bytes object in RAM (the old post-read len() check allocated
+        # the whole upload first). The body itself is already bounded before it gets
+        # here: the Content-Length middleware + Caddy reject anything over 4 MB.
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            chunk = await qr.read(65536)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > _PAYMENT_MAX_BYTES:
+                return {"ok": False, "reason": "too_large"}
+            chunks.append(chunk)
+        content = b"".join(chunks)
+        PAYMENTS_DIR.mkdir(parents=True, exist_ok=True)
+        qr_file = secrets.token_hex(8) + ext      # random name; never trust the upload's filename
+        qr_type = ct
+        await run_in_threadpool((PAYMENTS_DIR / qr_file).write_bytes, content)
+
+    if not (account or note or qr_file):
+        return {"ok": False, "reason": "empty"}
+    _PAYMENT_HITS.setdefault(_client_ip(request), []).append(time.time())
+    # One row per token: a re-submission overwrites the old one and we delete the
+    # now-orphaned QR image, so a reusable token can't flood the table or the disk.
+    old_qr = await run_in_threadpool(
+        db.upsert_payment, token, study, method, account, name, note, qr_file, qr_type)
+    if old_qr and _SAFE_QR_NAME.match(old_qr):
+        try:
+            await run_in_threadpool((PAYMENTS_DIR / old_qr).unlink, True)
+        except Exception:
+            pass
+    return {"ok": True}
+
+
+# --------------------------------------------------------------------------- #
 # Admin
 # --------------------------------------------------------------------------- #
+_ADMIN_COOKIE = "admin_session"
+_NOREF = {"Referrer-Policy": "no-referrer"}
+# For responses carrying participant PII (payment accounts / QR images): also tell
+# the admin's browser never to write them to its on-disk cache.
+_PII_HDRS = {"Referrer-Policy": "no-referrer", "Cache-Control": "no-store", "Pragma": "no-cache"}
+
+
+def _key_ok(key: Optional[str]) -> bool:
+    # Constant-time compare so an attacker can't recover the token byte-by-byte.
+    if not key:
+        return False
+    return secrets.compare_digest(key, config.ADMIN_TOKEN)
+
+
 def _check_key(request: Request) -> bool:
-    key = request.query_params.get("key") or request.headers.get("x-admin-key")
-    return key == config.ADMIN_TOKEN
+    # Header / cookie are preferred (never logged in the request line); the query
+    # param is kept only as a bootstrap + backward-compatible fallback.
+    return (
+        _key_ok(request.headers.get("x-admin-key"))
+        or _key_ok(request.cookies.get(_ADMIN_COOKIE))
+        or _key_ok(request.query_params.get("key"))
+    )
+
+
+def _is_https(request: Request) -> bool:
+    proto = request.headers.get("x-forwarded-proto", "").split(",")[0].strip().lower()
+    return proto == "https" or request.url.scheme == "https"
+
+
+def _set_admin_cookie(resp: Response, request: Request) -> None:
+    # HttpOnly (JS can't read it) + SameSite=strict; Secure only over HTTPS so the
+    # cookie still works for local http testing. The key then rides requests
+    # (incl. <img> QR thumbnails) automatically, so it never appears in any URL.
+    resp.set_cookie(
+        _ADMIN_COOKIE, config.ADMIN_TOKEN, max_age=12 * 3600, httponly=True,
+        samesite="strict", secure=_is_https(request), path="/",
+    )
+
+
+@app.post("/api/admin/login")
+def admin_login(request: Request) -> JSONResponse:
+    # The dashboard posts the key here (in a header, never a URL) and gets an
+    # HttpOnly cookie back; this keeps the admin key out of browser history,
+    # access logs, and Referer headers.
+    if not _key_ok(request.headers.get("x-admin-key") or request.query_params.get("key")):
+        return JSONResponse({"ok": False}, status_code=401, headers=_NOREF)
+    resp = JSONResponse({"ok": True}, headers=_NOREF)
+    _set_admin_cookie(resp, request)
+    return resp
+
+
+@app.post("/api/admin/logout")
+def admin_logout() -> JSONResponse:
+    resp = JSONResponse({"ok": True}, headers=_NOREF)
+    resp.delete_cookie(_ADMIN_COOKIE, path="/")
+    return resp
 
 
 @app.get("/admin", response_class=HTMLResponse)
 def admin_dashboard(request: Request) -> HTMLResponse:
     if not _check_key(request):
-        return HTMLResponse(admin.render_login(), status_code=401)
-    return HTMLResponse(admin.render_dashboard(admin.gather_stats()))
+        return HTMLResponse(admin.render_login(), status_code=401, headers=_NOREF)
+    resp = HTMLResponse(admin.render_dashboard(admin.gather_stats()), headers=_PII_HDRS)
+    _set_admin_cookie(resp, request)   # refresh / establish the cookie session
+    return resp
 
 
 @app.get("/api/admin/stats")
@@ -509,6 +669,35 @@ def admin_applications(request: Request) -> JSONResponse:
     if not _check_key(request):
         return JSONResponse({"ok": False, "reason": "unauthorized"}, status_code=401)
     return JSONResponse({"ok": True, "applications": db.list_applications()})
+
+
+@app.get("/api/admin/payments")
+def admin_payments(request: Request) -> JSONResponse:
+    if not _check_key(request):
+        return JSONResponse({"ok": False, "reason": "unauthorized"}, status_code=401, headers=_NOREF)
+    return JSONResponse({"ok": True, "payments": db.list_payments()}, headers=_PII_HDRS)
+
+
+@app.get("/api/admin/payment-qr")
+def admin_payment_qr(request: Request) -> Response:
+    if not _check_key(request):
+        return JSONResponse({"ok": False, "reason": "unauthorized"}, status_code=401, headers=_NOREF)
+    try:
+        pid = int(request.query_params.get("id", "0"))
+    except ValueError:
+        return JSONResponse({"ok": False}, status_code=400, headers=_NOREF)
+    row = db.get_payment(pid)
+    if not row or not row["qr_file"] or not _SAFE_QR_NAME.match(row["qr_file"]):
+        return JSONResponse({"ok": False}, status_code=404, headers=_NOREF)
+    path = PAYMENTS_DIR / row["qr_file"]
+    if not path.exists():
+        return JSONResponse({"ok": False}, status_code=404, headers=_NOREF)
+    return FileResponse(
+        str(path), media_type=row["qr_type"] or "application/octet-stream",
+        headers={"X-Content-Type-Options": "nosniff", "Content-Disposition": "inline",
+                 "Referrer-Policy": "no-referrer", "Cache-Control": "no-store",
+                 "Pragma": "no-cache"},
+    )
 
 
 # --------------------------------------------------------------------------- #

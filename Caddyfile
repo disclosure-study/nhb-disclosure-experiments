@@ -3,5 +3,12 @@
 #   :80       -> plain HTTP, for quick IP-only testing before DNS is set up
 {$SITE_ADDRESS} {
 	encode gzip
+	# Reject oversized request bodies at the edge so a multi-GB upload can never
+	# reach (and spool to disk inside) the app. The largest legitimate request is
+	# a ~3 MB payment QR image plus a few small form fields; 4 MB is a snug cap
+	# that matches the app's own 3 MB content limit (no wide edge-vs-app gap).
+	request_body {
+		max_size 4MB
+	}
 	reverse_proxy app:8000
 }
